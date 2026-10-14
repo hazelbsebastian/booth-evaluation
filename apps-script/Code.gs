@@ -40,6 +40,9 @@ function doPost(e) {
       case 'generateKeys':
         checkAdmin_(body.adminKey);
         return json_({ ok: true, keys: generateKeys_(body.topic, body.topicName, body.count) });
+      case 'clearData':
+        checkAdmin_(body.adminKey);
+        return json_(Object.assign({ ok: true }, clearData_(body.topic)));
       default:
         throw new Error('Unknown action');
     }
@@ -184,6 +187,46 @@ function submit_(rawKey, data) {
     lock.releaseLock();
   }
   return { ok: true };
+}
+
+// ---------- Clear data ----------
+// topic = a topic id to clear just that topic, or '*' to clear everything.
+// Removes its responses and passkeys, and switches the topic back to closed.
+function clearData_(topic) {
+  const all = topic === '*';
+  topic = all ? '*' : cleanId_(topic);
+  if (!topic) throw new Error('Missing topic');
+
+  const lock = LockService.getScriptLock();
+  lock.waitLock(15000);
+  try {
+    const responses = removeRows_(getSheet_(RESPONSES_SHEET), 'topic', topic, all);
+    const keys = removeRows_(getSheet_(KEYS_SHEET, KEY_HEADERS), 'topic', topic, all);
+    let status = getStatus_();
+    if (all) status = {}; else delete status[topic];
+    PropertiesService.getScriptProperties().setProperty(STATUS_PROP, JSON.stringify(status));
+    return { removedResponses: responses, removedKeys: keys, status: status };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+// Deletes data rows whose `column` equals `value` (or all data rows); keeps the header row.
+function removeRows_(sheet, column, value, all) {
+  const lastRow = sheet.getLastRow(), lastCol = sheet.getLastColumn();
+  if (lastRow < 2 || lastCol < 1) return 0;
+  const values = sheet.getRange(1, 1, lastRow, lastCol).getValues();
+  const col = values[0].indexOf(column);
+  const data = values.slice(1);
+  let keep;
+  if (all) keep = [];
+  else if (col === -1) keep = data;
+  else keep = data.filter(function (r) { return String(r[col]) !== value; });
+  const removed = data.length - keep.length;
+  if (!removed) return 0;
+  sheet.getRange(2, 1, lastRow - 1, lastCol).clearContent();
+  if (keep.length) sheet.getRange(2, 1, keep.length, lastCol).setValues(keep);
+  return removed;
 }
 
 function appendRecord_(sheet, record) {

@@ -289,7 +289,7 @@
     const lines = [["Passkey", "Topic", "Created", "Status", "Used at", "Used by"].join(",")];
     list.forEach((k) => lines.push([k.key, t.name, fmtDate(k.createdAt), k.usedAt ? "Used" : "Unused",
       k.usedAt ? fmtDate(k.usedAt) : "", k.usedBy || ""].map(csvCell).join(",")));
-    download(`Passkeys_${safeName(t.name)}.csv`, "﻿" + lines.join("\r\n"), "text/csv;charset=utf-8");
+    download(`Passkeys_${safeName(t.name)}.csv`, BOM + lines.join("\r\n"), "text/csv;charset=utf-8");
   });
 
   // ---------- Tally (horizontal bars, one hue) ----------
@@ -424,6 +424,8 @@
     return /[",\n\r]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
   }
 
+  const BOM = String.fromCharCode(0xFEFF); // so Excel opens UTF-8 (ñ, accents) correctly
+
   function safeName(s) { return String(s).replace(/[^\w-]+/g, "_"); }
 
   function fileBase() {
@@ -431,16 +433,77 @@
     return safeName(t === ALL ? "All_Topics" : topicNameOf(t)) + "_" + new Date().toISOString().slice(0, 10);
   }
 
-  $("csvBtn").addEventListener("click", () => {
-    const list = tableRows();
+  function downloadCsv(list, base) {
     const lines = [columns.map((c) => csvCell(c.label)).join(",")];
     list.forEach((r) => lines.push(columns.map((c) => csvCell(c.id === "timestamp" ? fmtDate(r[c.id]) : r[c.id])).join(",")));
-    // BOM so Excel opens UTF-8 (ñ, accents) correctly
-    download(fileBase() + ".csv", "﻿" + lines.join("\r\n"), "text/csv;charset=utf-8");
-  });
+    download(base + ".csv", BOM + lines.join("\r\n"), "text/csv;charset=utf-8");
+  }
+
+  $("csvBtn").addEventListener("click", () => downloadCsv(tableRows(), fileBase()));
 
   $("jsonBtn").addEventListener("click", () =>
     download(fileBase() + ".json", JSON.stringify(tableRows(), null, 2), "application/json"));
+
+  // ---------- Clear data (with confirmation) ----------
+  const dialog = $("clearDialog");
+
+  function clearTarget() {
+    return document.querySelector('input[name="clearScope"]:checked').value === "*" ? "*" : currentTopicId();
+  }
+
+  function rowsFor(list, t) { return t === "*" ? list : list.filter((x) => x.topic === t); }
+
+  function updateClear() {
+    const t = clearTarget();
+    const r = rowsFor(rows, t).length, k = rowsFor(keys, t).length;
+    const where = t === "*" ? "ALL topics" : topicNameOf(t);
+    $("clearSummary").textContent =
+      `This will permanently delete ${r} response${r === 1 ? "" : "s"} and ${k} passkey${k === 1 ? "" : "s"} ` +
+      `for ${where}, and switch ${t === "*" ? "every topic" : "this topic"} to CLOSED.`;
+    $("clearGo").disabled = $("clearConfirm").value.trim().toUpperCase() !== "DELETE";
+  }
+
+  $("clearBtn").addEventListener("click", () => {
+    const isAll = currentTopicId() === ALL;
+    const topicRadio = document.querySelector('input[name="clearScope"][value="topic"]');
+    topicRadio.disabled = isAll;
+    (isAll ? document.querySelector('input[name="clearScope"][value="*"]') : topicRadio).checked = true;
+    $("clearTopicName").textContent = isAll ? "(pick a topic first)" : topicNameOf(currentTopicId());
+    $("clearConfirm").value = "";
+    $("clearError").textContent = "";
+    updateClear();
+    dialog.showModal();
+    setTimeout(() => $("clearConfirm").focus(), 50);
+  });
+
+  document.querySelectorAll('input[name="clearScope"]').forEach((r) => r.addEventListener("change", updateClear));
+  $("clearConfirm").addEventListener("input", updateClear);
+  $("clearCancel").addEventListener("click", () => dialog.close());
+  $("clearForm").addEventListener("submit", (e) => e.preventDefault()); // pressing Enter never deletes
+
+  $("clearBackupBtn").addEventListener("click", () => {
+    const t = clearTarget();
+    downloadCsv(rowsFor(rows, t), "BACKUP_" + safeName(t === "*" ? "All_Topics" : topicNameOf(t)) + "_" + new Date().toISOString().slice(0, 10));
+  });
+
+  $("clearGo").addEventListener("click", async () => {
+    if ($("clearConfirm").value.trim().toUpperCase() !== "DELETE") return;
+    const t = clearTarget();
+    const btn = $("clearGo");
+    btn.disabled = true;
+    btn.textContent = "Deleting…";
+    try {
+      const res = await API.clearData(adminKey(), t);
+      dialog.close();
+      await load();
+      toast(`Cleared ${res.removedResponses} response(s) and ${res.removedKeys} passkey(s).`);
+    } catch (err) {
+      $("clearError").textContent = "Could not clear data: " + err.message;
+    } finally {
+      btn.textContent = "Delete permanently";
+      updateClear();
+    }
+  });
 
   // ---------- Events ----------
   $("search").addEventListener("input", renderTable);

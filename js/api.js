@@ -155,6 +155,25 @@
         return out;
       }
       return (await post({ action: "generateKeys", adminKey, topic, topicName, count })).keys;
+    },
+
+    // topic: a topic id, or "*" for everything. Removes responses + passkeys and closes the topic.
+    async clearData(adminKey, topic) {
+      if (isDemo) {
+        checkDemoAdmin(adminKey);
+        const all = topic === "*";
+        const rows = readLocal(DEMO_ROWS, []), keys = readLocal(DEMO_KEYS, []);
+        const keptRows = all ? [] : rows.filter((r) => r.topic !== topic);
+        const keptKeys = all ? [] : keys.filter((k) => k.topic !== topic);
+        writeLocal(DEMO_ROWS, keptRows);
+        writeLocal(DEMO_KEYS, keptKeys);
+        const status = all ? {} : readLocal(DEMO_STATUS, {});
+        if (!all) delete status[topic];
+        writeLocal(DEMO_STATUS, status);
+        return { removedResponses: rows.length - keptRows.length, removedKeys: keys.length - keptKeys.length, status };
+      }
+      const d = await post({ action: "clearData", adminKey, topic });
+      return { removedResponses: d.removedResponses, removedKeys: d.removedKeys, status: d.status };
     }
   };
 })();

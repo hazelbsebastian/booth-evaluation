@@ -1007,3 +1007,49 @@ tbody tr:hover td { background: #faf8ff; }
   font-size: 1.25rem;
   color: var(--purple);
 }
+
+/* participant doodle: ink-filled hair + waving hand */
+.choice svg .fill-ink { fill: var(--ink); }
+.choice svg .wave { transform-origin: 63px 64px; animation: wave 2.6s ease-in-out infinite; }
+@keyframes wave {
+  0%, 55%, 100% { transform: rotate(0); }
+  10% { transform: rotate(-16deg); }
+  20% { transform: rotate(8deg); }
+  30% { transform: rotate(-14deg); }
+  40% { transform: rotate(6deg); }
+}
+
+/* ---------- Clear data ---------- */
+.btn.danger { background: var(--danger); color: #fff; }
+.btn.danger:hover { background: #b52a3b; }
+.btn.danger:disabled { background: #e6a3ab; border-color: #8a8597; box-shadow: none; opacity: 1; cursor: not-allowed; }
+.danger-zone { border: 3px dashed var(--danger); }
+.danger-zone .card-title { color: var(--danger); background-image: none; }
+
+.confirm-dialog {
+  width: min(480px, calc(100vw - 24px));
+  padding: 26px 22px 22px;
+  color: var(--ink);
+  background: var(--paper-2) var(--grain);
+  border: 3px solid var(--ink);
+  border-radius: 14px;
+  box-shadow: 8px 8px 0 var(--ink);
+}
+.confirm-dialog::backdrop { background: rgba(20, 14, 50, .6); }
+.confirm-dialog .card-title { color: var(--danger); background-image: none; padding-bottom: 0; }
+.clear-scope { margin: 12px 0; padding: 0; border: none; }
+.clear-scope legend { font-family: var(--font-display); font-weight: 600; margin-bottom: 6px; }
+.radio { display: flex; align-items: flex-start; gap: 8px; padding: 6px 0; cursor: pointer; }
+.radio input { width: 18px; height: 18px; margin-top: 4px; accent-color: var(--danger); }
+.radio input:disabled + span { color: #a19eb1; }
+.clear-summary {
+  padding: 10px 12px;
+  margin: 8px 0 12px;
+  color: #7a1a26;
+  background: #fde8eb;
+  border: 2px solid var(--danger);
+  border-radius: 10px;
+}
+@media (max-width: 560px) {
+  .confirm-dialog .actions .btn { flex: 1 1 auto; }
+}
