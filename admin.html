@@ -124,11 +124,41 @@
         <p class="muted" id="countLabel" style="margin:0 0 8px"></p>
         <div class="table-wrap"><table id="table"></table></div>
       </section>
+
+      <!-- Danger zone -->
+      <section class="paper-card danger-zone">
+        <h2 class="card-title">Clear Data</h2>
+        <p class="card-sub">After testing, wipe the test responses and passkeys so the real event starts fresh. This can't be undone.</p>
+        <button class="btn danger" type="button" id="clearBtn">🗑 Clear data…</button>
+      </section>
     </div>
   </main>
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
   <div class="chart-tip hidden" id="chartTip" role="tooltip"></div>
+
+  <!-- Clear data confirmation -->
+  <dialog class="confirm-dialog" id="clearDialog" aria-labelledby="clearTitle">
+    <form method="dialog" id="clearForm">
+      <h2 class="card-title" id="clearTitle">Clear data?</h2>
+      <fieldset class="clear-scope">
+        <legend>What should be deleted?</legend>
+        <label class="radio"><input type="radio" name="clearScope" value="topic" checked> <span>This topic only: <b id="clearTopicName"></b></span></label>
+        <label class="radio"><input type="radio" name="clearScope" value="*"> <span><b>Everything</b> (all topics)</span></label>
+      </fieldset>
+      <p class="clear-summary" id="clearSummary"></p>
+      <button class="btn light small" type="button" id="clearBackupBtn">⬇ Download a backup first (CSV)</button>
+      <div class="field" style="margin-top:16px">
+        <label for="clearConfirm">Type <b>DELETE</b> to confirm</label>
+        <input type="text" id="clearConfirm" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="DELETE">
+      </div>
+      <p class="error" id="clearError" role="alert"></p>
+      <div class="actions">
+        <button class="btn light" type="button" id="clearCancel">Cancel</button>
+        <button class="btn danger" type="button" id="clearGo" disabled>Delete permanently</button>
+      </div>
+    </form>
+  </dialog>
 
   <script src="config.js"></script>
   <script src="js/api.js"></script>
