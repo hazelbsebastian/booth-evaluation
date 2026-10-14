@@ -997,3 +997,12 @@ tbody tr:hover td { background: #faf8ff; }
   .table-wrap { max-height: 60vh; }
   th, td { padding: 8px 10px; font-size: .92rem; }
 }
+
+.note-from {
+  display: block;
+  margin-top: 2px;
+  font-family: var(--font-script);
+  font-weight: 700;
+  font-size: 1.25rem;
+  color: var(--purple);
+}
