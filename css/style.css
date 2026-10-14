@@ -1008,15 +1008,12 @@ tbody tr:hover td { background: #faf8ff; }
   color: var(--purple);
 }
 
-/* participant doodle: ink-filled hair + waving hand */
+/* participant doodle: ink-filled hair */
 .choice svg .fill-ink { fill: var(--ink); }
-.choice svg .wave { transform-origin: 63px 64px; animation: wave 2.6s ease-in-out infinite; }
-@keyframes wave {
-  0%, 55%, 100% { transform: rotate(0); }
-  10% { transform: rotate(-16deg); }
-  20% { transform: rotate(8deg); }
-  30% { transform: rotate(-14deg); }
-  40% { transform: rotate(6deg); }
+
+@media (max-width: 560px) {
+  .note-from { font-size: 1rem; margin-top: 0; }
+}
 }
 
 /* ---------- Clear data ---------- */
