@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#4b3aa3">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Admin – Post-Event Evaluation</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@700&family=Fredoka:wght@400;500;600;700&family=Patrick+Hand&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <header class="hero" style="padding-bottom:48px">
+    <svg class="doodle d-gear" viewBox="0 0 50 50" aria-hidden="true"><circle cx="25" cy="25" r="8"/><path d="M25 4v7M25 39v7M4 25h7M39 25h7M10 10l5 5M35 35l5 5M40 10l-5 5M15 35l-5 5"/><circle cx="25" cy="25" r="14"/></svg>
+    <svg class="doodle d-cursor" viewBox="0 0 50 50" aria-hidden="true"><path d="M14 8v30l8-7 6 13 6-3-6-13h11z"/><path d="M6 6l-3-3M14 2V0M4 14H1"/></svg>
+    <svg class="doodle d-wifi" viewBox="0 0 50 40" aria-hidden="true"><path d="M4 14c12-11 30-11 42 0M11 21c8-7 20-7 28 0M18 28c4-3 10-3 14 0"/><circle cx="25" cy="34" r="2" class="dot"/></svg>
+    <div class="kicker">organizer</div>
+    <h1 class="big-title" aria-label="Admin">
+      <span aria-hidden="true" style="--r:-7deg;--y:4px">A</span><span aria-hidden="true" style="--r:5deg;--y:-10px;--s:.82em">D</span><span aria-hidden="true" style="--r:-3deg">M</span><span aria-hidden="true" style="--r:7deg;--y:-12px;--s:.8em">I</span><span aria-hidden="true" style="--r:-4deg;--y:4px">N</span>
+    </h1>
+    <div class="brush-tag" id="eventTitle">Dashboard</div>
+  </header>
+
+  <main class="band" id="band">
+    <!-- Login -->
+    <div class="band-inner" id="loginView">
+      <div id="demoNotice" class="sticky-note hidden"><b>Demo mode:</b> the password is <b>admin</b>.</div>
+      <form class="paper-card login-card view" id="loginForm">
+        <span class="tape tl" aria-hidden="true"></span><span class="tape tr" aria-hidden="true"></span>
+        <h2 class="card-title">Admin Login</h2>
+        <p class="card-sub">Enter the organizer password to manage topics, passkeys and results.</p>
+        <div class="field">
+          <label for="adminKey">Password</label>
+          <input type="password" id="adminKey" autocomplete="current-password" required>
+        </div>
+        <p id="loginError" class="error" role="alert"></p>
+        <div class="actions">
+          <a class="btn light" href="index.html">← Home</a>
+          <button class="btn" type="submit" id="loginBtn">Log in</button>
+        </div>
+      </form>
+    </div>
+
+    <!-- Dashboard -->
+    <div class="band-inner wide hidden" id="dashView">
+      <div class="admin-top">
+        <h2 class="band-heading">Dashboard</h2>
+        <div class="btns">
+          <a class="btn light small" href="index.html" target="_blank" rel="noopener">Open participant page ↗</a>
+          <button class="btn light small" id="refreshBtn">↻ Refresh</button>
+          <button class="btn light small" id="logoutBtn">Log out</button>
+        </div>
+      </div>
+
+      <!-- Topic picker + open/closed -->
+      <section class="paper-card topic-panel">
+        <span class="tape tl" aria-hidden="true"></span>
+        <div class="topic-row">
+          <div class="field topic-select-field">
+            <label for="topicSelect">Topic</label>
+            <select id="topicSelect"></select>
+          </div>
+          <div class="topic-switch" id="topicSwitchWrap">
+            <label class="switch">
+              <input type="checkbox" id="topicOpen">
+              <span class="track" aria-hidden="true"></span>
+              <span id="openLabel">Evaluation closed</span>
+            </label>
+            <p class="muted switch-hint">Only affects this topic. Participants can't use passkeys for a closed topic.</p>
+          </div>
+        </div>
+        <div class="topic-overview" id="topicOverview" aria-label="All topics"></div>
+      </section>
+
+      <div class="stats" id="stats"></div>
+
+      <div class="two-col">
+        <!-- Passkeys -->
+        <section class="paper-card" id="keysCard">
+          <h2 class="card-title">Passkeys</h2>
+          <p class="card-sub">Give one passkey to each participant. Each works <b>once</b>, only for this topic.</p>
+          <div class="key-stats" id="keyStats"></div>
+          <form class="key-gen" id="genForm">
+            <label for="genCount">Generate</label>
+            <input type="number" id="genCount" min="1" value="20" inputmode="numeric">
+            <span>new keys</span>
+            <button class="btn small" type="submit" id="genBtn">+ Generate</button>
+          </form>
+          <div class="key-actions">
+            <button class="btn yellow small" type="button" id="printKeysBtn">🖨 Print unused keys</button>
+            <button class="btn light small" type="button" id="keysCsvBtn">⬇ Keys CSV</button>
+            <label class="check"><input type="checkbox" id="showUsed"> Show used keys</label>
+          </div>
+          <div class="key-grid" id="keyGrid"></div>
+        </section>
+
+        <!-- Tally -->
+        <section class="paper-card">
+          <h2 class="card-title">Attendees Tally</h2>
+          <p class="card-sub" id="tallySub"></p>
+          <h3 class="tally-title">By College</h3>
+          <div class="hbars" id="byCollege"></div>
+          <h3 class="tally-title">By Year Level</h3>
+          <div class="hbars" id="byYear"></div>
+        </section>
+      </div>
+
+      <section class="paper-card">
+        <h2 class="card-title">Rating Summary</h2>
+        <p class="card-sub">Average score per question (5 = Strongly Agree)</p>
+        <div id="summary"></div>
+      </section>
+
+      <!-- Table -->
+      <section class="paper-card">
+        <h2 class="card-title">Responses</h2>
+        <div class="toolbar" style="margin-top:12px">
+          <input type="search" id="search" placeholder="Search name, email, college, passkey…" aria-label="Search responses">
+          <button class="btn yellow small" id="csvBtn" type="button">⬇ Download CSV (Excel)</button>
+          <button class="btn light small" id="jsonBtn" type="button">⬇ JSON</button>
+        </div>
+        <p class="muted" id="countLabel" style="margin:0 0 8px"></p>
+        <div class="table-wrap"><table id="table"></table></div>
+      </section>
+    </div>
+  </main>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <div class="chart-tip hidden" id="chartTip" role="tooltip"></div>
+
+  <script src="config.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/admin.js"></script>
+</body>
+</html>

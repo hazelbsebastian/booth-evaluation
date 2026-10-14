@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#4b3aa3">
+  <title>Post-Event Evaluation</title>
+  <meta name="description" content="Attendance, post-event evaluation and e-certificate.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:wght@500&family=Caveat:wght@700&family=DM+Sans:wght@400;700&family=Fredoka:wght@400;500;600;700&family=Great+Vibes&family=Patrick+Hand&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <header class="hero">
+    <!-- doodles -->
+    <!-- IT doodles -->
+    <svg class="doodle d-laptop" viewBox="0 0 120 70" aria-hidden="true"><path d="M22 6h76v44H22z"/><path d="M8 58h104l-6 8H14z"/><path d="M48 20l-8 8 8 8M72 20l8 8-8 8M64 16l-8 24"/></svg>
+    <svg class="doodle d-gear" viewBox="0 0 50 50" aria-hidden="true"><circle cx="25" cy="25" r="8"/><path d="M25 4v7M25 39v7M4 25h7M39 25h7M10 10l5 5M35 35l5 5M40 10l-5 5M15 35l-5 5"/><circle cx="25" cy="25" r="14"/></svg>
+    <svg class="doodle d-cursor" viewBox="0 0 50 50" aria-hidden="true"><path d="M14 8v30l8-7 6 13 6-3-6-13h11z"/><path d="M6 6l-3-3M14 2V0M4 14H1"/></svg>
+    <svg class="doodle d-code" viewBox="0 0 60 40" aria-hidden="true"><path d="M18 8L6 20l12 12M42 8l12 12-12 12M35 4l-10 32"/></svg>
+    <svg class="doodle d-wifi" viewBox="0 0 50 40" aria-hidden="true"><path d="M4 14c12-11 30-11 42 0M11 21c8-7 20-7 28 0M18 28c4-3 10-3 14 0"/><circle cx="25" cy="34" r="2" class="dot"/></svg>
+    <svg class="doodle d-term" viewBox="0 0 56 44" aria-hidden="true"><rect x="3" y="3" width="50" height="38" rx="5"/><path d="M3 12h50M12 22l6 5-6 5M24 33h10"/><path d="M9 7.5h.1M14 7.5h.1M19 7.5h.1"/></svg>
+    <span class="doodle-text d-binary" aria-hidden="true">01001001<br>01010100</span>
+
+    <div class="kicker">post-event</div>
+    <h1 class="big-title" aria-label="Evaluation">
+      <span aria-hidden="true" style="--r:-8deg;--y:4px">E</span><span aria-hidden="true" style="--r:4deg;--y:-10px;--s:.8em">V</span><span aria-hidden="true" style="--r:-3deg">A</span><span aria-hidden="true" style="--r:6deg;--y:-14px;--s:.82em">L</span><span aria-hidden="true" style="--r:-5deg;--y:6px">U</span><span aria-hidden="true" style="--r:3deg;--y:-6px;--s:.86em">A</span><span aria-hidden="true" style="--r:-6deg;--y:2px">T</span><span aria-hidden="true" style="--r:8deg;--y:-12px;--s:.78em">I</span><span aria-hidden="true" style="--r:-2deg;--y:4px">O</span><span aria-hidden="true" style="--r:5deg;--y:-4px;--s:.88em">N</span>
+    </h1>
+    <div class="brush-tag" id="eventTitle">Loading event…</div>
+    <p class="event-meta" id="eventMeta"></p>
+  </header>
+
+  <main class="band" id="band">
+    <div class="band-inner">
+      <div id="demoNotice" class="sticky-note hidden">
+        <b>Demo mode:</b> no <code>SCRIPT_URL</code> in <code>config.js</code> yet. Responses are saved only in this browser.
+      </div>
+
+      <!-- LANDING: choose role -->
+      <section id="viewLanding" class="view">
+        <h2 class="band-heading">Who's checking in?</h2>
+        <div class="choice-wrap">
+          <!-- student doodles -->
+          <svg class="band-doodle bd-pencil" viewBox="0 0 80 30" aria-hidden="true"><path d="M8 15L20 6h52v18H20z"/><path d="M20 6v18M62 6v18M8 15h4"/><path d="M28 12h26" stroke-dasharray="3 5"/></svg>
+          <svg class="band-doodle bd-book" viewBox="0 0 70 50" aria-hidden="true"><path d="M35 10c-8-6-20-6-30-2v36c10-4 22-4 30 2 8-6 20-6 30-2V8c-10-4-22-4-30 2z"/><path d="M35 10v36M12 18c6-2 12-2 16 0M12 26c6-2 12-2 16 0M42 18c6-2 12-2 16 0"/></svg>
+          <svg class="band-doodle bd-cap" viewBox="0 0 70 54" aria-hidden="true"><path d="M35 6L66 20 35 34 4 20z"/><path d="M16 26v13c10 8 28 8 38 0V26"/><path d="M60 22v16"/><path d="M57 42l3-4 3 4z"/></svg>
+          <svg class="band-doodle bd-bulb" viewBox="0 0 40 56" aria-hidden="true"><path d="M20 4a14 14 0 0 0-8 25c2 2 3 5 3 8h10c0-3 1-6 3-8A14 14 0 0 0 20 4z"/><path d="M15 43h10M16 48h8M20 12c-4 0-7 3-7 7"/></svg>
+          <span class="pick-note" aria-hidden="true">pick one!<svg viewBox="0 0 40 34"><path d="M6 4c18 0 28 10 26 26"/><path d="M26 24l6 7 5-8"/></svg></span>
+
+          <div class="choice-grid">
+            <button type="button" class="choice" id="roleAttendee">
+              <svg viewBox="0 0 92 80" aria-hidden="true">
+                <path class="fill-accent" d="M46 6l30 12-30 12-30-12z"/>
+                <path d="M70 21v14"/><path d="M67 39l3-4 3 4z"/>
+                <path d="M30 26v6c0 9 7 16 16 16s16-7 16-16v-6"/>
+                <path d="M40 38h.1M52 38h.1M42 44c2 2 6 2 8 0"/>
+                <path d="M18 78c2-14 13-22 28-22s26 8 28 22"/>
+                <path class="accent" d="M46 56v10M40 62l6 4 6-4"/>
+              </svg>
+              <h3>Participant</h3>
+              <p>Attendance, evaluation &amp; e-certificate</p>
+              <span class="go">start here →</span>
+            </button>
+            <a class="choice" href="admin.html">
+              <svg viewBox="0 0 92 80" aria-hidden="true">
+                <rect x="22" y="10" width="48" height="64" rx="5"/>
+                <path class="fill-accent" d="M36 6h20v10H36z"/>
+                <path class="accent" d="M31 30l4 4 7-8M31 46l4 4 7-8M31 62l4 4 7-8"/>
+                <path d="M48 31h14M48 47h14M48 63h10"/>
+                <path d="M76 20l8-8 4 4-8 8-6 2z"/>
+              </svg>
+              <h3>Organizer</h3>
+              <p>Manage the event &amp; view results</p>
+              <span class="go">log in →</span>
+            </a>
+          </div>
+        </div>
+      </section>
+
+      <!-- STEP INDICATOR -->
+      <ol class="steps hidden" id="steps" aria-label="Progress">
+        <li><span class="num">1</span><span class="label">Passkey</span></li>
+        <li><span class="num">2</span><span class="label">Attendance</span></li>
+        <li><span class="num">3</span><span class="label">Evaluation</span></li>
+        <li><span class="num">4</span><span class="label">Certificate</span></li>
+      </ol>
+      <p class="topic-chip hidden" id="topicChip">Topic: <b id="topicChipName"></b></p>
+
+      <!-- STEP 1: Passkey -->
+      <form id="viewPasskey" class="view paper-card passkey-card hidden" novalidate>
+        <span class="tape tc" aria-hidden="true"></span>
+        <svg class="passkey-doodle" viewBox="0 0 90 50" aria-hidden="true"><circle cx="20" cy="25" r="13"/><circle cx="20" cy="25" r="4"/><path d="M33 25h50M70 25v10M78 25v7"/></svg>
+        <h2 class="card-title">Enter your passkey</h2>
+        <p class="card-sub">Ask the booth staff for your <span class="highlight">one-time passkey</span>. It tells us which topic you're evaluating.</p>
+        <div class="field">
+          <label for="passkey" class="sr-only">Passkey</label>
+          <input type="text" id="passkey" class="passkey-input" maxlength="7" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="ABC-123" required>
+        </div>
+        <p id="passkeyError" class="error" role="alert"></p>
+        <div class="actions">
+          <button type="button" class="btn light" data-home>← Home</button>
+          <button type="submit" class="btn" id="passkeyBtn">Continue →</button>
+        </div>
+      </form>
+
+      <!-- STEP 2: Attendance -->
+      <form id="viewAttendance" class="view paper-card hidden" novalidate>
+        <span class="tape tl" aria-hidden="true"></span><span class="tape tr" aria-hidden="true"></span>
+        <h2 class="card-title">Attendance</h2>
+        <p class="card-sub">Type your name <span class="highlight">exactly as it should appear on your certificate.</span></p>
+        <div class="fields">
+          <div class="field full">
+            <label for="fullName">Full Name <span class="req">*</span></label>
+            <input type="text" id="fullName" maxlength="80" autocomplete="name" placeholder="e.g. Maria Clara D. Santos" required>
+          </div>
+          <div class="field full">
+            <label for="email">Email <span class="req">*</span></label>
+            <input type="email" id="email" maxlength="120" autocomplete="email" placeholder="you@example.com" required>
+          </div>
+          <div class="field" id="collegeField">
+            <label for="college">College <span class="req">*</span></label>
+            <!-- input or select is inserted by app.js -->
+          </div>
+          <div class="field">
+            <label for="yearLevel">Year Level <span class="req">*</span></label>
+            <select id="yearLevel" required></select>
+          </div>
+        </div>
+        <p id="attendanceError" class="error" role="alert"></p>
+        <div class="actions">
+          <button type="button" class="btn light" id="attBackBtn">← Back</button>
+          <button type="submit" class="btn">Next<span class="hide-sm">: Evaluation</span> →</button>
+        </div>
+      </form>
+
+      <!-- STEP 3: Evaluation -->
+      <form id="viewEvaluation" class="view paper-card hidden" novalidate>
+        <span class="tape tc" aria-hidden="true"></span>
+        <h2 class="card-title">Evaluation</h2>
+        <p class="card-sub">Please rate each statement honestly. Your feedback helps us improve!</p>
+        <div class="scale-legend" id="scaleLegend"></div>
+        <div id="questions"></div>
+        <div class="section-label">Optional Feedback</div>
+        <div id="feedback"></div>
+        <p id="evaluationError" class="error" role="alert"></p>
+        <div class="actions sticky-actions">
+          <button type="button" class="btn light" id="backBtn">← Back</button>
+          <span class="eval-progress" id="evalProgress" aria-live="polite"></span>
+          <button type="submit" class="btn" id="submitBtn">Submit<span class="hide-sm"> Evaluation</span> ✓</button>
+        </div>
+      </form>
+
+      <!-- STEP 4: Certificate -->
+      <section id="viewDone" class="view paper-card done-card hidden">
+        <span class="tape tl" aria-hidden="true"></span><span class="tape tr" aria-hidden="true"></span>
+        <h2 class="card-title">Thank you!</h2>
+        <div class="done-name" id="doneName"></div>
+        <p class="muted">Your attendance and evaluation have been recorded. Here's your e-certificate:</p>
+        <div class="cert-frame">
+          <span class="tape tc" aria-hidden="true"></span>
+          <img id="certPreview" alt="Preview of your e-certificate">
+          <div class="cert-loading" id="certLoading">making your certificate…</div>
+        </div>
+        <div class="done-actions">
+          <button type="button" class="btn yellow" id="downloadCert">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12M7 10l5 5 5-5M4 20h16"/></svg>
+            Download E-Certificate (PDF)
+          </button>
+          <button type="button" class="btn light" data-home>Done</button>
+        </div>
+      </section>
+    </div>
+
+    <footer class="band-footer" aria-hidden="true">
+      <div class="note">Keep learning, keep <span class="circled">coding</span>!</div>
+      <div class="note">Thanks for visiting! ♡</div>
+    </footer>
+  </main>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="config.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/certificate.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
