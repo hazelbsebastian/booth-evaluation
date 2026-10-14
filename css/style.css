@@ -152,7 +152,8 @@ a { color: var(--purple); }
 .d-binary { top: 52%; left: 4%; transform: rotate(-90deg); transform-origin: left top; }
 
 @media (max-width: 760px) {
-  .d-laptop, .d-term, .d-code, .d-binary { display: none; }
+  .d-laptop, .d-term, .d-binary { display: none; }
+  .d-code { width: 40px; top: 4%; left: 5%; transform: rotate(-12deg); }
   .d-gear { width: 34px; top: auto; bottom: 8%; right: 5%; }
   .d-cursor { width: 26px; top: 8%; right: 6%; }
   .d-wifi { width: 32px; bottom: 6%; right: auto; left: 6%; }

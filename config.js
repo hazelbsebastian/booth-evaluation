@@ -9,7 +9,7 @@ window.APP_CONFIG = {
 
   // Shown in the header of every page.
   EVENT: {
-    title: "Service Learning Competency: IT Skills Demonstration",
+    title: "Service Learning Competency: 4th Year IT Skills Demonstration",
     date: "2026-10-15",
     venue: "University of La Salette",
     organizer: "College of Information Technology"
