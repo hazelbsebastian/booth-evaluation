@@ -1050,3 +1050,4 @@ tbody tr:hover td { background: #faf8ff; }
 @media (max-width: 560px) {
   .confirm-dialog .actions .btn { flex: 1 1 auto; }
 }
+.nowrap { white-space: nowrap; }
