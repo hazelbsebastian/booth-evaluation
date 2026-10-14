@@ -1,4 +1,6 @@
 /**
+ * @OnlyCurrentDoc  (only asks for access to this one spreadsheet)
+ *
  * Google Apps Script backend for the Evaluation & Attendance site.
  *
  * Setup (details in README.md):

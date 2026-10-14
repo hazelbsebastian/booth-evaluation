@@ -5,7 +5,7 @@ window.APP_CONFIG = {
   // Paste your Google Apps Script Web App URL here (see README.md).
   // Leave empty ("") to run in DEMO MODE: data is saved only in this browser,
   // and the admin password is "admin".
-  SCRIPT_URL: "",
+  SCRIPT_URL: "https://script.google.com/macros/s/AKfycbyM4dWUVbQGIBv6-C17isAFd6KHC5WB0gICkTpPDvPSIhjU7eLswnIkqth4dxx-md_l/exec",
 
   // Shown in the header of every page.
   EVENT: {
