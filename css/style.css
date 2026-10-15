@@ -336,6 +336,7 @@ a { color: var(--purple); }
 .steps li:nth-child(2) { --c: var(--yellow); }
 .steps li:nth-child(3) { --c: var(--green); }
 .steps li:nth-child(4) { --c: var(--pink); }
+.steps li:nth-child(5) { --c: var(--lavender); }
 .steps li.active { opacity: 1; }
 .steps li.active .num { color: var(--c); -webkit-text-stroke: 0; }
 .steps li.done { opacity: .9; }
@@ -601,6 +602,13 @@ textarea { min-height: 100px; resize: vertical; }
   background: var(--lavender-soft);
 }
 .done-actions { display: flex; justify-content: center; gap: 14px; flex-wrap: wrap; }
+.pre-done-key {
+  display: inline-block;
+  margin: 4px auto 24px;
+  background: #fff7d1;
+  border: 2px dashed var(--ink);
+  border-radius: 12px;
+}
 
 /* ---------- Notices ---------- */
 .sticky-note {
@@ -783,7 +791,7 @@ tbody tr:hover td { background: #faf8ff; }
 .tile-meta { font-size: .95rem; color: var(--ink-soft); }
 
 /* ---------- Admin: passkeys ---------- */
-.key-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 16px; }
+.key-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 16px; }
 .key-stat {
   padding: 8px 10px;
   text-align: center;
@@ -828,6 +836,7 @@ tbody tr:hover td { background: #faf8ff; }
   border: 2px solid var(--ink);
   border-radius: 8px;
 }
+.key-chip.started { background: var(--lavender-soft); border-style: dashed; }
 .key-chip.used { color: #9a97a8; border-color: #cfccd9; text-decoration: line-through; background: #f4f3f7; }
 
 /* ---------- Admin: tally bars (single hue, value at tip) ---------- */
@@ -934,7 +943,7 @@ tbody tr:hover td { background: #faf8ff; }
   .tape.tl { left: -6px; }
   .tape.tr { right: -6px; }
 
-  /* 4 steps fit on one line */
+  /* 5 steps fit on one line */
   .steps { gap: 4px; margin-bottom: 20px; }
   .steps li {
     flex: 1 1 0;

@@ -47,7 +47,7 @@ window.APP_CONFIG = {
   ],
   YEAR_LEVELS: ["1st Year", "2nd Year", "3rd Year", "4th Year", "5th Year", "Graduate / Others"],
 
-  // ---- Evaluation ----
+  // ---- Rating scale (used by both the pre- and post-evaluation) ----
   RATING_SCALE: [
     { value: 5, label: "Strongly Agree" },
     { value: 4, label: "Agree" },
@@ -56,6 +56,38 @@ window.APP_CONFIG = {
     { value: 1, label: "Strongly Disagree" }
   ],
 
+  // ---- Pre-evaluation (answered with the passkey BEFORE the demo) ----
+  // Each topic has its own statements, keyed by topic id. "id" becomes the column name
+  // in the PreEvaluation sheet; "short" is used in the admin page.
+  PRE_QUESTIONS: {
+    utp: [
+      { id: "p1", short: "UTP basics",     label: "I know what a UTP cable is and what it is used for." },
+      { id: "p2", short: "Tools",          label: "I can identify the tools used in cable termination (RJ45 connector, crimping tool, wire stripper, cable tester)." },
+      { id: "p3", short: "T568B order",    label: "I know the T568B wire color order." },
+      { id: "p4", short: "Cable testing",  label: "I understand why a cable should be tested after crimping." },
+      { id: "p5", short: "Tool safety",    label: "I know how to handle stripping and crimping tools safely." }
+    ],
+    "router-wifi": [
+      { id: "p1", short: "Router role",    label: "I know what a router does in a network." },
+      { id: "p2", short: "WAN vs LAN",     label: "I can tell the difference between the WAN/Internet port and the LAN ports." },
+      { id: "p3", short: "SSID & password", label: "I know what an SSID is and how to set a strong Wi-Fi password." },
+      { id: "p4", short: "Admin password", label: "I know the difference between the router's admin password and the Wi-Fi password." },
+      { id: "p5", short: "Wi-Fi security", label: "I know which Wi-Fi security settings are recommended (such as WPA2-AES or WPA3)." }
+    ],
+    troubleshooting: [
+      { id: "p1", short: "First steps",    label: "I know what to check first when a device cannot connect to the network." },
+      { id: "p2", short: "Physical checks", label: "I can check cables, Wi-Fi status and router lights to find a connection problem." },
+      { id: "p3", short: "ipconfig",       label: "I know how to use ipconfig to see a computer's IP address and default gateway." },
+      { id: "p4", short: "ping",           label: "I know how to use the ping command to test a connection." },
+      { id: "p5", short: "Safe process",   label: "I know why I should change one thing at a time and not reset equipment without permission." }
+    ]
+  },
+
+  PRE_FEEDBACK: [
+    { id: "expectations", short: "Expectations", label: "What do you hope to learn from this demonstration?" }
+  ],
+
+  // ---- Post-evaluation (answered with the same passkey AFTER the demo) ----
   // "id" becomes the column name in the sheet; "short" is used in the admin table.
   QUESTIONS: [
     { id: "q1",  short: "Objectives",   label: "Were the objectives of the session clearly explained?" },

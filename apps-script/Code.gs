@@ -12,13 +12,19 @@
  *  4. Copy the Web App URL into SCRIPT_URL in config.js.
  *
  * Sheets (created automatically):
- *   Responses  one row per submitted evaluation
- *   Keys       one row per passkey (key, topic, topicName, createdAt, usedAt, usedBy)
+ *   PreEvaluation  one row per pre-evaluation (attendance + answers before the demo)
+ *   Responses      one row per post-evaluation (after the demo)
+ *   Keys           one row per passkey (key, topic, topicName, createdAt, usedAt, usedBy, preAt)
+ *
+ * A passkey is used twice: first for the pre-evaluation (sets preAt), then for the
+ * post-evaluation (sets usedAt/usedBy, after which the key is finished).
  */
 
 const RESPONSES_SHEET = 'Responses';
+const PRE_SHEET = 'PreEvaluation';
 const KEYS_SHEET = 'Keys';
-const KEY_HEADERS = ['key', 'topic', 'topicName', 'createdAt', 'usedAt', 'usedBy'];
+const KEY_HEADERS = ['key', 'topic', 'topicName', 'createdAt', 'usedAt', 'usedBy', 'preAt'];
+const ATTENDEE_FIELDS = ['name', 'email', 'college', 'yearLevel'];
 const STATUS_PROP = 'TOPIC_STATUS';
 const KEY_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // no 0/O/1/I
 const MAX_BATCH = 200;
@@ -29,11 +35,13 @@ function doPost(e) {
     switch (body.action) {
       case 'checkKey':
         return json_({ ok: true, key: checkKey_(body.key) });
+      case 'submitPre':
+        return json_(submitPre_(body.key, body.data || {}));
       case 'submit':
         return json_(submit_(body.key, body.data || {}));
       case 'adminData':
         checkAdmin_(body.adminKey);
-        return json_({ ok: true, rows: readRows_(RESPONSES_SHEET), keys: readRows_(KEYS_SHEET), status: getStatus_() });
+        return json_({ ok: true, rows: readRows_(RESPONSES_SHEET), preRows: readRows_(PRE_SHEET), keys: readRows_(KEYS_SHEET), status: getStatus_() });
       case 'setTopicOpen':
         checkAdmin_(body.adminKey);
         return json_({ ok: true, status: setTopicOpen_(body.topic, body.isOpen === true) });
@@ -94,7 +102,8 @@ function findKey_(key) {
   const values = getSheet_(KEYS_SHEET, KEY_HEADERS).getDataRange().getValues();
   for (let i = 1; i < values.length; i++) {
     if (normalizeKey_(values[i][0]) === key) {
-      return { row: i + 1, key: values[i][0], topic: values[i][1], topicName: values[i][2], usedAt: values[i][4] };
+      return { row: i + 1, key: values[i][0], topic: values[i][1], topicName: values[i][2], usedAt: values[i][4], preAt: values[i][6],
+               hasPreHeader: values[0][6] === 'preAt' };
     }
   }
   return null;
@@ -116,7 +125,24 @@ function checkKey_(raw) {
   }
   if (found.usedAt) throw new Error('This passkey has already been used.');
   if (getStatus_()[found.topic] !== true) throw new Error('The evaluation for "' + found.topicName + '" is closed right now.');
-  return { key: found.key, topic: found.topic, topicName: found.topicName };
+  const out = { key: found.key, topic: found.topic, topicName: found.topicName, stage: found.preAt ? 'post' : 'pre' };
+  if (found.preAt) out.attendee = findAttendee_(found.key);
+  return out;
+}
+
+// Name, email, college and year level saved with this passkey's pre-evaluation.
+function findAttendee_(key) {
+  const values = getSheet_(PRE_SHEET).getDataRange().getValues();
+  const h = values[0] || [];
+  const col = h.indexOf('passkey');
+  for (let i = values.length - 1; i >= 1 && col !== -1; i--) {
+    if (String(values[i][col]) === String(key)) {
+      const a = {};
+      ATTENDEE_FIELDS.forEach(function (f) { const c = h.indexOf(f); a[f] = c === -1 ? '' : String(values[i][c]).replace(/^'/, ''); });
+      return a;
+    }
+  }
+  return null;
 }
 
 function generateKeys_(topic, topicName, count) {
@@ -137,8 +163,8 @@ function generateKeys_(topic, topicName, count) {
       const norm = normalizeKey_(k);
       if (existing[norm]) continue;
       existing[norm] = true;
-      rows.push([k, topic, topicName, now, '', '']);
-      out.push({ key: k, topic: topic, topicName: topicName, createdAt: now.toISOString(), usedAt: '', usedBy: '' });
+      rows.push([k, topic, topicName, now, '', '', '']);
+      out.push({ key: k, topic: topic, topicName: topicName, createdAt: now.toISOString(), usedAt: '', usedBy: '', preAt: '' });
     }
     const start = sheet.getLastRow() + 1;
     sheet.getRange(start, 1, rows.length, 1).setNumberFormat('@'); // keep keys as plain text
@@ -156,6 +182,41 @@ function randomKey_() {
 }
 
 // ---------- Submit ----------
+// Copies up to 50 answer fields from the browser into record (column names cleaned).
+function addAnswers_(record, data) {
+  Object.keys(data).slice(0, 50).forEach(function (k) {
+    const col = String(k).replace(/[^\w]/g, '').slice(0, 40);
+    if (!col || record.hasOwnProperty(col)) return;
+    let v = data[k];
+    if (typeof v !== 'number') v = sanitize_(String(v == null ? '' : v).slice(0, 1000));
+    record[col] = v;
+  });
+  return record;
+}
+
+// Pre-evaluation: saves attendance + answers and marks the key as started (preAt).
+function submitPre_(rawKey, data) {
+  const key = normalizeKey_(rawKey);
+  const name = String(data.name || '').trim();
+  if (name.length < 2) throw new Error('Name is required');
+
+  withLock_(function () {
+    const found = findKey_(key);
+    if (!found) throw new Error('Invalid passkey.');
+    if (found.usedAt) throw new Error('This passkey has already been used.');
+    if (found.preAt) throw new Error('The pre-evaluation for this passkey is already done.');
+    if (getStatus_()[found.topic] !== true) throw new Error('The evaluation for "' + found.topicName + '" is closed right now.');
+
+    const record = addAnswers_({ timestamp: new Date(), topic: found.topic, topicName: found.topicName, passkey: found.key }, data);
+    appendRecord_(getSheet_(PRE_SHEET), record);
+
+    const keys = getSheet_(KEYS_SHEET, KEY_HEADERS);
+    if (!found.hasPreHeader) keys.getRange(1, 7).setValue('preAt').setFontWeight('bold');
+    keys.getRange(found.row, 7).setValue(record.timestamp);
+  }, 15000);
+  return { ok: true };
+}
+
 // Saved one at a time under the lock. In stress tests this was the only version that stayed
 // 100% correct with 100 simultaneous submissions; the browser retries "BUSY" answers.
 function submit_(rawKey, data) {
@@ -167,17 +228,11 @@ function submit_(rawKey, data) {
     const found = findKey_(key);
     if (!found) throw new Error('Invalid passkey.');
     if (found.usedAt) throw new Error('This passkey has already been used.');
+    if (!found.preAt) throw new Error('Please answer the pre-evaluation first.');
     if (getStatus_()[found.topic] !== true) throw new Error('The evaluation for "' + found.topicName + '" is closed right now.');
 
     // Topic and key always come from the Keys sheet, never from the browser.
-    const record = { timestamp: new Date(), topic: found.topic, topicName: found.topicName, passkey: found.key };
-    Object.keys(data).slice(0, 50).forEach(function (k) {
-      const col = String(k).replace(/[^\w]/g, '').slice(0, 40);
-      if (!col || record.hasOwnProperty(col)) return;
-      let v = data[k];
-      if (typeof v !== 'number') v = sanitize_(String(v == null ? '' : v).slice(0, 1000));
-      record[col] = v;
-    });
+    const record = addAnswers_({ timestamp: new Date(), topic: found.topic, topicName: found.topicName, passkey: found.key }, data);
 
     appendRecord_(getSheet_(RESPONSES_SHEET), record);
 
@@ -189,7 +244,7 @@ function submit_(rawKey, data) {
 
 // ---------- Clear data ----------
 // topic = a topic id to clear just that topic, or '*' to clear everything.
-// Removes its responses and passkeys, and switches the topic back to closed.
+// Removes its pre/post responses and passkeys, and switches the topic back to closed.
 function clearData_(topic) {
   const all = topic === '*';
   topic = all ? '*' : cleanId_(topic);
@@ -197,11 +252,12 @@ function clearData_(topic) {
 
   return withLock_(function () {
     const responses = removeRows_(getSheet_(RESPONSES_SHEET), 'topic', topic, all);
+    const pre = removeRows_(getSheet_(PRE_SHEET), 'topic', topic, all);
     const keys = removeRows_(getSheet_(KEYS_SHEET, KEY_HEADERS), 'topic', topic, all);
     let status = getStatus_();
     if (all) status = {}; else delete status[topic];
     PropertiesService.getScriptProperties().setProperty(STATUS_PROP, JSON.stringify(status));
-    return { removedResponses: responses, removedKeys: keys, status: status };
+    return { removedResponses: responses, removedPre: pre, removedKeys: keys, status: status };
   }, 60000);
 }
 

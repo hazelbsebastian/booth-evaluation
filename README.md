@@ -4,13 +4,17 @@ A Google Forms–style attendance and evaluation site you can host free on **Git
 
 **Landing page:** choose **Participant** or **Organizer** (admin).
 
-**Participant flow:** enter a one-time **passkey** → Attendance (name, email, college, year level) → Evaluation (10 rating questions + 2 optional) → Submit → the e-certificate for that passkey's **topic** downloads automatically.
+**Participant flow** (the same **passkey** is used twice):
+- **Before the demo:** passkey → Attendance (name, email, college, year level) → **Pre-evaluation** (5 topic-specific statements + 1 optional) → "see you after the demo".
+- **After the demo:** same passkey → **Post-evaluation** (10 rating questions + 2 optional) → the e-certificate for that passkey's **topic** downloads automatically.
+
+Pre-evaluation statements are set per topic in `PRE_QUESTIONS` in `config.js`.
 
 **Organizer flow:** `admin.html` → log in → pick a **topic** from the dropdown → switch its evaluation **open/closed**, then generate, print or download its **passkeys** → view the attendee tally, rating averages and responses → download as CSV (opens in Excel) or JSON.
 
 ### How topics and passkeys work
 - Topics are listed in `TOPICS` in `config.js`. Each topic has its own certificate image, its own passkeys and its own **open/closed switch**. Closing one topic doesn't affect the others.
-- A passkey looks like `K7M-Q3P`. It belongs to one topic and works **once**: it's used up when that participant submits the evaluation.
+- A passkey looks like `K7M-Q3P`. It belongs to one topic and is used **twice**: once for the pre-evaluation, then once for the post-evaluation, after which it's finished.
 - Passkeys for a closed topic are rejected until you open the topic again.
 - Typical booth flow: generate keys → **Print unused keys** (prints cut-out slips) → hand one slip to each participant after the demo.
 
@@ -49,7 +53,7 @@ With XAMPP running, open http://localhost/Evaluation%20Attendance/
    ```js
    SCRIPT_URL: "https://script.google.com/macros/s/XXXXXXXX/exec",
    ```
-7. Open `admin.html`, log in, pick a topic, switch its evaluation **open**, and generate passkeys. The sheet gets two tabs: **Responses** and **Keys**.
+7. Open `admin.html`, log in, pick a topic, switch its evaluation **open**, and generate passkeys. The sheet gets three tabs: **PreEvaluation**, **Responses** (post-evaluation) and **Keys**.
 
 > If you change `Code.gs` later, go to **Deploy → Manage deployments → ✏ Edit → Version: New version → Deploy**. This keeps the same URL.
 

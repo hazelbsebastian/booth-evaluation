@@ -1,10 +1,14 @@
-// Participant flow: Landing -> Passkey -> Attendance -> Evaluation -> Certificate
+// Participant flow:
+//   before the demo: Landing -> Passkey -> Attendance -> Pre-evaluation -> "see you after the demo"
+//   after the demo:  Landing -> Passkey (same one) -> Post-evaluation -> Certificate
 (function () {
   const cfg = window.APP_CONFIG;
   const $ = (id) => document.getElementById(id);
-  const VIEWS = ["viewLanding", "viewPasskey", "viewAttendance", "viewEvaluation", "viewDone"];
-  // pass: the accepted passkey, topic: its topic from config (has the certificate)
-  const state = { pass: null, topic: null, attendee: null, certCanvas: null };
+  const VIEWS = ["viewLanding", "viewPasskey", "viewAttendance", "viewPre", "viewPreDone", "viewEvaluation", "viewDone"];
+  const LAST_KEY = "eval_last_passkey"; // pre-fills the passkey when the participant comes back
+  // pass: the accepted passkey, topic: its topic from config (has the certificate),
+  // stage: "pre" or "post", returning: attendee came from the saved pre-evaluation
+  const state = { pass: null, topic: null, stage: null, returning: false, attendee: null, certCanvas: null };
 
   const ICONS = {
     date: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>',
@@ -21,10 +25,18 @@
     toast.timer = setTimeout(() => t.classList.remove("show"), 3200);
   }
 
+  function remember(key) {
+    try { if (key) localStorage.setItem(LAST_KEY, key); else localStorage.removeItem(LAST_KEY); } catch (e) { /* ignore */ }
+  }
+  function remembered() {
+    try { return localStorage.getItem(LAST_KEY) || ""; } catch (e) { return ""; }
+  }
+
   // ---------- Views ----------
   function show(view) {
     VIEWS.forEach((v) => $(v).classList.toggle("hidden", v !== view));
-    const step = { viewPasskey: 1, viewAttendance: 2, viewEvaluation: 3, viewDone: 4 }[view] || 0;
+    // 3.5 = steps 1-3 done, nothing active yet (waiting for the demo)
+    const step = { viewPasskey: 1, viewAttendance: 2, viewPre: 3, viewPreDone: 3.5, viewEvaluation: 4, viewDone: 5 }[view] || 0;
     $("steps").classList.toggle("hidden", !step);
     $("steps").querySelectorAll("li").forEach((li, i) => {
       li.classList.toggle("active", i + 1 === step);
@@ -75,19 +87,23 @@
     cfg.YEAR_LEVELS.forEach((y) => yl.add(new Option(y, y)));
   }
 
-  function buildEvaluation() {
-    const legend = $("scaleLegend");
-    legend.innerHTML = "";
-    cfg.RATING_SCALE.forEach((r) => {
-      const s = document.createElement("span");
-      s.innerHTML = "<b></b> – ";
-      s.querySelector("b").textContent = r.value;
-      s.appendChild(document.createTextNode(r.label));
-      legend.appendChild(s);
+  function buildScaleLegends() {
+    document.querySelectorAll("[data-scale-legend]").forEach((legend) => {
+      legend.innerHTML = "";
+      cfg.RATING_SCALE.forEach((r) => {
+        const s = document.createElement("span");
+        s.innerHTML = "<b></b> – ";
+        s.querySelector("b").textContent = r.value;
+        s.appendChild(document.createTextNode(r.label));
+        legend.appendChild(s);
+      });
     });
+  }
 
-    const wrap = $("questions");
-    cfg.QUESTIONS.forEach((q, i) => {
+  // Rating statements (1-5) into `wrap`
+  function buildRatings(wrap, questions) {
+    wrap.innerHTML = "";
+    questions.forEach((q, i) => {
       const div = document.createElement("fieldset");
       div.className = "q";
       div.dataset.qid = q.id;
@@ -124,9 +140,12 @@
 
       wrap.appendChild(div);
     });
+  }
 
-    const fb = $("feedback");
-    cfg.FEEDBACK.forEach((q) => {
+  // Optional text answers into `wrap`
+  function buildFeedback(wrap, questions) {
+    wrap.innerHTML = "";
+    questions.forEach((q) => {
       const f = document.createElement("div");
       f.className = "field";
       const label = document.createElement("label");
@@ -135,34 +154,76 @@
       const ta = document.createElement("textarea");
       ta.id = q.id; ta.maxLength = 1000; ta.placeholder = "Write your answer here (optional)";
       f.append(label, ta);
-      fb.appendChild(f);
+      wrap.appendChild(f);
     });
+  }
+
+  function preQuestions() {
+    return (state.topic && (cfg.PRE_QUESTIONS || {})[state.topic.id]) || [];
+  }
+
+  // Pre-evaluation statements depend on the topic, so they're built once the passkey is known.
+  function buildPre() {
+    buildRatings($("preQuestions"), preQuestions());
+    buildFeedback($("preFeedback"), cfg.PRE_FEEDBACK || []);
+    updatePreProgress();
   }
 
   function resetForms() {
     $("viewPasskey").reset();
     $("viewAttendance").reset();
+    $("viewPre").reset();
     $("viewEvaluation").reset();
     document.querySelectorAll(".invalid, .missing").forEach((el) => el.classList.remove("invalid", "missing"));
-    $("passkeyError").textContent = "";
-    $("attendanceError").textContent = "";
-    $("evaluationError").textContent = "";
+    ["passkeyError", "attendanceError", "preError", "evaluationError"].forEach((id) => { $(id).textContent = ""; });
     state.pass = null;
     state.topic = null;
+    state.stage = null;
+    state.returning = false;
     updateProgress();
     state.attendee = null;
     state.certCanvas = null;
   }
 
+  // "3/10 answered" counters in the sticky submit bars
+  function showProgress(questions, el) {
+    const done = questions.filter((q) => document.querySelector(`input[name="${q.id}"]:checked`)).length;
+    el.textContent = `${done}/${questions.length} answered`;
+    el.classList.toggle("complete", done === questions.length);
+  }
+  function updateProgress() { showProgress(cfg.QUESTIONS, $("evalProgress")); }
+  function updatePreProgress() { showProgress(preQuestions(), $("preProgress")); }
+
+  // Reads the ratings; marks unanswered ones in red. Returns null if any are missing.
+  function collectRatings(questions, errorEl) {
+    const answers = {};
+    let firstMissing = null;
+    questions.forEach((q) => {
+      const checked = document.querySelector(`input[name="${q.id}"]:checked`);
+      const box = document.querySelector(`.q[data-qid="${q.id}"]`);
+      box.classList.toggle("missing", !checked);
+      if (!checked && !firstMissing) firstMissing = box;
+      answers[q.id] = checked ? Number(checked.value) : "";
+    });
+    if (firstMissing) {
+      errorEl.textContent = `Please answer all ${questions.length} questions (the ones marked in red).`;
+      firstMissing.scrollIntoView({ behavior: "smooth", block: "center" });
+      return null;
+    }
+    errorEl.textContent = "";
+    return answers;
+  }
+
   // ---------- Landing ----------
   $("roleAttendee").addEventListener("click", () => {
+    if (!$("passkey").value && remembered()) $("passkey").value = remembered();
     show("viewPasskey");
     setTimeout(() => $("passkey").focus({ preventScroll: true }), 350);
   });
 
   document.querySelectorAll("[data-home]").forEach((b) =>
     b.addEventListener("click", () => {
-      if (b.closest("#viewDone")) resetForms();
+      if (b.closest("#viewDone, #viewPreDone")) resetForms();
       show("viewLanding");
     }));
 
@@ -189,8 +250,20 @@
       const res = await API.checkKey(key);
       state.pass = res.key;
       state.topic = API.topicById(res.topic) || { id: res.topic, name: res.topicName };
+      state.stage = res.stage === "post" ? "post" : "pre";
       $("topicChipName").textContent = state.topic.name;
       $("passkeyError").textContent = "";
+
+      // Coming back after the demo: skip straight to the post-evaluation.
+      if (state.stage === "post" && res.attendee && res.attendee.name) {
+        state.attendee = res.attendee;
+        state.returning = true;
+        $("welcomeBack").textContent = `Welcome back, ${res.attendee.name}! `;
+        show("viewEvaluation");
+        return;
+      }
+      $("welcomeBack").textContent = "";
+      if (state.stage === "pre") buildPre();
       show("viewAttendance");
       setTimeout(() => $("fullName").focus({ preventScroll: true }), 350);
     } catch (err) {
@@ -202,7 +275,7 @@
     }
   });
 
-  // ---------- Step 1 ----------
+  // ---------- Step 2: Attendance ----------
   $("viewAttendance").addEventListener("submit", (e) => {
     e.preventDefault();
     const f = {
@@ -229,43 +302,54 @@
     }
     $("attendanceError").textContent = "";
     state.attendee = f;
-    show("viewEvaluation");
+    show(state.stage === "post" ? "viewEvaluation" : "viewPre");
   });
 
   ["fullName", "email", "yearLevel"].forEach((id) =>
     $(id).addEventListener("input", () => $(id).classList.remove("invalid")));
   document.addEventListener("input", (e) => { if (e.target.id === "college") e.target.classList.remove("invalid"); });
 
-  $("backBtn").addEventListener("click", () => show("viewAttendance"));
-
-  // "3/10 answered" counter in the sticky submit bar
-  function updateProgress() {
-    const done = cfg.QUESTIONS.filter((q) => document.querySelector(`input[name="${q.id}"]:checked`)).length;
-    $("evalProgress").textContent = `${done}/${cfg.QUESTIONS.length} answered`;
-    $("evalProgress").classList.toggle("complete", done === cfg.QUESTIONS.length);
-  }
-  $("questions").addEventListener("change", updateProgress);
   $("attBackBtn").addEventListener("click", () => show("viewPasskey"));
 
-  // ---------- Step 2 ----------
+  // ---------- Step 3: Pre-evaluation ----------
+  $("preQuestions").addEventListener("change", updatePreProgress);
+  $("preBackBtn").addEventListener("click", () => show("viewAttendance"));
+
+  $("viewPre").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const answers = collectRatings(preQuestions(), $("preError"));
+    if (!answers) return;
+    (cfg.PRE_FEEDBACK || []).forEach((q) => { answers[q.id] = $(q.id).value.trim(); });
+
+    const btn = $("preSubmitBtn");
+    const label = btn.innerHTML;
+    btn.disabled = true;
+    btn.textContent = "Submitting…";
+    try {
+      await API.submitPre(state.pass, Object.assign({}, state.attendee, answers), (n) => {
+        btn.textContent = `Lots of students are submitting… retrying (${n})`;
+      });
+      remember(state.pass);
+      $("preDoneName").textContent = state.attendee.name;
+      $("preDoneKey").textContent = state.pass;
+      show("viewPreDone");
+    } catch (err) {
+      $("preError").textContent = "Submission failed: " + err.message + ". Please try again.";
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = label;
+    }
+  });
+
+  // ---------- Step 4: Post-evaluation ----------
+  $("questions").addEventListener("change", updateProgress);
+  $("backBtn").addEventListener("click", () => show(state.returning ? "viewPasskey" : "viewAttendance"));
+
   $("viewEvaluation").addEventListener("submit", async (e) => {
     e.preventDefault();
-    const answers = {};
-    let firstMissing = null;
-    cfg.QUESTIONS.forEach((q) => {
-      const checked = document.querySelector(`input[name="${q.id}"]:checked`);
-      const box = document.querySelector(`.q[data-qid="${q.id}"]`);
-      box.classList.toggle("missing", !checked);
-      if (!checked && !firstMissing) firstMissing = box;
-      answers[q.id] = checked ? Number(checked.value) : "";
-    });
-    if (firstMissing) {
-      $("evaluationError").textContent = "Please answer all 10 questions (the ones marked in red).";
-      firstMissing.scrollIntoView({ behavior: "smooth", block: "center" });
-      return;
-    }
+    const answers = collectRatings(cfg.QUESTIONS, $("evaluationError"));
+    if (!answers) return;
     cfg.FEEDBACK.forEach((q) => { answers[q.id] = $(q.id).value.trim(); });
-    $("evaluationError").textContent = "";
 
     const btn = $("submitBtn");
     const label = btn.innerHTML;
@@ -275,6 +359,7 @@
       await API.submit(state.pass, Object.assign({}, state.attendee, answers), (n) => {
         btn.textContent = `Lots of students are submitting… retrying (${n})`;
       });
+      remember("");
       $("doneName").textContent = state.attendee.name;
       show("viewDone");
       await makeCertificate(true);
@@ -286,7 +371,7 @@
     }
   });
 
-  // ---------- Step 3 ----------
+  // ---------- Step 5: Certificate ----------
   async function makeCertificate(autoDownload) {
     const img = $("certPreview"), loading = $("certLoading");
     loading.classList.remove("hidden");
@@ -312,7 +397,9 @@
   // ---------- Init ----------
   function init() {
     buildAttendance();
-    buildEvaluation();
+    buildScaleLegends();
+    buildRatings($("questions"), cfg.QUESTIONS);
+    buildFeedback($("feedback"), cfg.FEEDBACK);
     updateProgress();
     renderEvent();
   }

@@ -3,6 +3,7 @@
 (function () {
   const cfg = window.APP_CONFIG;
   const DEMO_ROWS = "eval_demo_responses_v2";
+  const DEMO_PRE = "eval_demo_pre";
   const DEMO_KEYS = "eval_demo_keys";
   const DEMO_STATUS = "eval_demo_status";
   const DEMO_PASSWORD = "admin";
@@ -11,7 +12,7 @@
 
   // Answers the server gives on purpose (wrong key, closed topic, ...). Anything else
   // (busy server, dropped connection, Google error page) is worth retrying.
-  const FINAL_ERRORS = /invalid passkey|already been used|closed right now|name is required|wrong password|admin_key|missing topic|unknown action/i;
+  const FINAL_ERRORS = /invalid passkey|already been used|already done|pre-evaluation first|closed right now|name is required|wrong password|admin_key|missing topic|unknown action/i;
 
   function failure(message, retryable) {
     const err = new Error(message);
@@ -133,19 +134,50 @@
     },
 
     // ---------- Participant ----------
-    // Returns { key, topic, topicName } if the passkey is unused and its topic is open.
+    // Returns { key, topic, topicName, stage } if the passkey is unused and its topic is open.
+    // stage is "pre" (pre-evaluation not done yet) or "post"; for "post" it also returns
+    // attendee: the name/email/college/yearLevel saved with the pre-evaluation.
     async checkKey(key) {
       if (isDemo) {
         const k = demoFindOpenKey(key);
-        return { key: k.key, topic: k.topic, topicName: k.topicName };
+        const out = { key: k.key, topic: k.topic, topicName: k.topicName, stage: k.preAt ? "post" : "pre" };
+        if (k.preAt) {
+          const pre = readLocal(DEMO_PRE, []).filter((r) => r.passkey === k.key).pop() || {};
+          out.attendee = { name: pre.name || "", email: pre.email || "", college: pre.college || "", yearLevel: pre.yearLevel || "" };
+        }
+        return out;
       }
       return (await postWithRetry({ action: "checkKey", key })).key;
     },
 
-    // Saves the evaluation and uses up the passkey. onRetry(n) is called before each retry.
+    // Saves attendance + pre-evaluation and marks the passkey as started.
+    async submitPre(key, record, onRetry) {
+      if (isDemo) {
+        const k = demoFindOpenKey(key);
+        if (k.preAt) throw new Error("The pre-evaluation for this passkey is already done.");
+        const now = new Date().toISOString();
+        const rows = readLocal(DEMO_PRE, []);
+        rows.push(Object.assign({}, record, { timestamp: now, topic: k.topic, topicName: k.topicName, passkey: k.key }));
+        writeLocal(DEMO_PRE, rows);
+        const keys = readLocal(DEMO_KEYS, []);
+        keys.find((x) => x.key === k.key).preAt = now;
+        writeLocal(DEMO_KEYS, keys);
+        return { ok: true };
+      }
+      try {
+        return await postWithRetry({ action: "submitPre", key, data: record }, onRetry);
+      } catch (err) {
+        // Same as submit(): a retry that finds it already saved means it went through.
+        if (err.attempt > 0 && /already done/i.test(err.message)) return { ok: true };
+        throw err;
+      }
+    },
+
+    // Saves the post-evaluation and uses up the passkey. onRetry(n) is called before each retry.
     async submit(key, record, onRetry) {
       if (isDemo) {
         const k = demoFindOpenKey(key);
+        if (!k.preAt) throw new Error("Please answer the pre-evaluation first.");
         const now = new Date().toISOString();
         const rows = readLocal(DEMO_ROWS, []);
         rows.push(Object.assign({}, record, { timestamp: now, topic: k.topic, topicName: k.topicName, passkey: k.key }));
@@ -168,14 +200,14 @@
     },
 
     // ---------- Admin ----------
-    // Returns { rows, keys, status } where status is { topicId: true/false }.
+    // Returns { rows, preRows, keys, status } where status is { topicId: true/false }.
     async adminData(adminKey) {
       if (isDemo) {
         checkDemoAdmin(adminKey);
-        return { rows: readLocal(DEMO_ROWS, []), keys: readLocal(DEMO_KEYS, []), status: readLocal(DEMO_STATUS, {}) };
+        return { rows: readLocal(DEMO_ROWS, []), preRows: readLocal(DEMO_PRE, []), keys: readLocal(DEMO_KEYS, []), status: readLocal(DEMO_STATUS, {}) };
       }
       const d = await postWithRetry({ action: "adminData", adminKey });
-      return { rows: d.rows, keys: d.keys, status: d.status };
+      return { rows: d.rows, preRows: d.preRows || [], keys: d.keys, status: d.status };
     },
 
     async setTopicOpen(adminKey, topic, isOpen) {
@@ -200,7 +232,7 @@
           const k = randomKey();
           if (existing.has(normalizeKey(k))) continue;
           existing.add(normalizeKey(k));
-          out.push({ key: k, topic, topicName, createdAt: now, usedAt: "", usedBy: "" });
+          out.push({ key: k, topic, topicName, createdAt: now, usedAt: "", usedBy: "", preAt: "" });
         }
         writeLocal(DEMO_KEYS, keys.concat(out));
         return out;
@@ -208,23 +240,26 @@
       return (await post({ action: "generateKeys", adminKey, topic, topicName, count })).keys;
     },
 
-    // topic: a topic id, or "*" for everything. Removes responses + passkeys and closes the topic.
+    // topic: a topic id, or "*" for everything. Removes pre/post responses + passkeys and closes the topic.
     async clearData(adminKey, topic) {
       if (isDemo) {
         checkDemoAdmin(adminKey);
         const all = topic === "*";
-        const rows = readLocal(DEMO_ROWS, []), keys = readLocal(DEMO_KEYS, []);
+        const rows = readLocal(DEMO_ROWS, []), pre = readLocal(DEMO_PRE, []), keys = readLocal(DEMO_KEYS, []);
         const keptRows = all ? [] : rows.filter((r) => r.topic !== topic);
+        const keptPre = all ? [] : pre.filter((r) => r.topic !== topic);
         const keptKeys = all ? [] : keys.filter((k) => k.topic !== topic);
         writeLocal(DEMO_ROWS, keptRows);
+        writeLocal(DEMO_PRE, keptPre);
         writeLocal(DEMO_KEYS, keptKeys);
         const status = all ? {} : readLocal(DEMO_STATUS, {});
         if (!all) delete status[topic];
         writeLocal(DEMO_STATUS, status);
-        return { removedResponses: rows.length - keptRows.length, removedKeys: keys.length - keptKeys.length, status };
+        return { removedResponses: rows.length - keptRows.length, removedPre: pre.length - keptPre.length,
+          removedKeys: keys.length - keptKeys.length, status };
       }
       const d = await post({ action: "clearData", adminKey, topic });
-      return { removedResponses: d.removedResponses, removedKeys: d.removedKeys, status: d.status };
+      return { removedResponses: d.removedResponses, removedPre: d.removedPre || 0, removedKeys: d.removedKeys, status: d.status };
     }
   };
 })();

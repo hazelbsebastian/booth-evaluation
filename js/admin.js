@@ -1,13 +1,13 @@
-// Admin dashboard: login, per-topic open/closed, passkeys, tally, responses, export
+// Admin dashboard: login, per-topic open/closed, passkeys, tally, pre/post responses, export
 (function () {
   const cfg = window.APP_CONFIG;
   const $ = (id) => document.getElementById(id);
   const SESSION_KEY = "eval_admin_key";
   const TOPIC_KEY = "eval_admin_topic";
   const ALL = "__all__";
-  let rows = [], keys = [], status = {};
+  let rows = [], preRows = [], keys = [], status = {};
 
-  const columns = [
+  const baseColumns = [
     { id: "timestamp", label: "Date/Time", short: "Date/Time" },
     { id: "topicName", label: "Topic", short: "Topic" },
     { id: "passkey", label: "Passkey", short: "Passkey" },
@@ -15,9 +15,26 @@
     { id: "email", label: "Email", short: "Email" },
     { id: "college", label: "College", short: "College" },
     { id: "yearLevel", label: "Year Level", short: "Year" }
-  ]
+  ];
+
+  // Post-evaluation columns
+  const columns = baseColumns
     .concat(cfg.QUESTIONS.map((q, i) => ({ id: q.id, label: `Q${i + 1}. ${q.label}`, short: `Q${i + 1}`, rating: true })))
     .concat(cfg.FEEDBACK.map((q) => ({ id: q.id, label: q.label, short: q.short, wrap: true })));
+
+  // Pre-evaluation statements differ per topic; "All topics" shows them as P1, P2, ...
+  function preQuestionsFor(topicId) {
+    const pre = cfg.PRE_QUESTIONS || {};
+    if (topicId !== ALL) return pre[topicId] || [];
+    const n = Math.max(0, ...Object.values(pre).map((list) => list.length));
+    return Array.from({ length: n }, (_, i) => ({ id: `p${i + 1}`, short: `P${i + 1}`, label: `P${i + 1} (differs per topic)` }));
+  }
+
+  function preColumns() {
+    return baseColumns
+      .concat(preQuestionsFor(currentTopicId()).map((q, i) => ({ id: q.id, label: `P${i + 1}. ${q.label}`, short: `P${i + 1}`, rating: true })))
+      .concat((cfg.PRE_FEEDBACK || []).map((q) => ({ id: q.id, label: q.label, short: q.short, wrap: true })));
+  }
 
   if (API.isDemo) $("demoNotice").classList.remove("hidden");
   $("eventTitle").textContent = (cfg.EVENT && cfg.EVENT.title) || "Dashboard";
@@ -57,6 +74,7 @@
   async function load() {
     const d = await API.adminData(adminKey());
     rows = (d.rows || []).sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+    preRows = (d.preRows || []).sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
     keys = d.keys || [];
     status = d.status || {};
     render();
@@ -119,14 +137,25 @@
     return t === ALL ? rows : rows.filter((r) => r.topic === t);
   }
 
+  function topicPreRows() {
+    const t = currentTopicId();
+    return t === ALL ? preRows : preRows.filter((r) => r.topic === t);
+  }
+
+  // Everyone who attended: their pre-evaluation, or the post-evaluation if there's no pre row
+  function attendeeRows() {
+    const pre = topicPreRows();
+    const seen = new Set(pre.map((r) => r.passkey));
+    return pre.concat(topicRows().filter((r) => !seen.has(r.passkey)));
+  }
+
   function topicKeys() {
     const t = currentTopicId();
     return t === ALL ? keys : keys.filter((k) => k.topic === t);
   }
 
-  function tableRows() {
-    const q = $("search").value.trim().toLowerCase();
-    const list = topicRows();
+  function searchRows(list, input) {
+    const q = input.value.trim().toLowerCase();
     if (!q) return list;
     return list.filter((r) => ["name", "email", "college", "yearLevel", "passkey"]
       .some((k) => String(r[k] || "").toLowerCase().includes(q)));
@@ -148,7 +177,12 @@
     renderTally();
     renderSummary();
     renderTable();
+    renderPreSummary();
+    renderPreTable();
   }
+
+  function tableRows() { return searchRows(topicRows(), $("search")); }
+  function preTableRows() { return searchRows(topicPreRows(), $("preSearch")); }
 
   function renderOverview() {
     const box = $("topicOverview");
@@ -160,10 +194,11 @@
       const used = keys.filter((k) => k.topic === t.id && k.usedAt).length;
       const total = keys.filter((k) => k.topic === t.id).length;
       const n = rows.filter((r) => r.topic === t.id).length;
+      const pre = preRows.filter((r) => r.topic === t.id).length;
       b.append(
         el("span", open ? "● Open" : "○ Closed", "tile-status " + (open ? "is-open" : "is-closed")),
         el("span", t.name, "tile-name"),
-        el("span", `${n} response${n === 1 ? "" : "s"} · ${used}/${total} keys used`, "tile-meta")
+        el("span", `${pre} pre · ${n} post · ${used}/${total} keys finished`, "tile-meta")
       );
       b.addEventListener("click", () => selectTopic(t.id));
       box.appendChild(b);
@@ -177,14 +212,12 @@
 
   function renderStats() {
     const list = topicRows();
-    const today = new Date().toDateString();
-    const todayCount = list.filter((r) => new Date(r.timestamp).toDateString() === today).length;
     const overall = cfg.QUESTIONS.length ? cfg.QUESTIONS.reduce((s, q) => s + avg(list, q.id), 0) / cfg.QUESTIONS.length : 0;
     const satisfied = list.filter((r) => Number(r.q10) >= 4).length;
     $("stats").innerHTML = "";
     [
-      [list.length, "Attendees (evaluations)"],
-      [todayCount, "Submitted today"],
+      [attendeeRows().length, "Attendees (pre-evaluations)"],
+      [list.length, "Post-evaluations"],
       [overall ? overall.toFixed(2) : "–", "Overall average (out of 5)"],
       [list.length ? Math.round((satisfied / list.length) * 100) + "%" : "–", "Satisfied overall (Q10 ≥ 4)"]
     ].forEach(([n, l]) => {
@@ -198,16 +231,17 @@
   function renderKeys() {
     const list = topicKeys();
     const used = list.filter((k) => k.usedAt).length;
-    const left = list.length - used;
+    const started = list.filter((k) => k.preAt && !k.usedAt).length;
+    const left = list.length - used - started;
     const stats = $("keyStats");
     stats.innerHTML = "";
-    [[list.length, "generated"], [used, "used"], [left, "left"]].forEach(([n, l]) => {
+    [[list.length, "generated"], [left, "not used"], [started, "pre done"], [used, "finished"]].forEach(([n, l]) => {
       const d = el("div", undefined, "key-stat");
       d.append(el("b", String(n)), el("span", l));
       stats.appendChild(d);
     });
     const meter = el("div", undefined, "key-meter");
-    meter.title = `${used} of ${list.length} keys used`;
+    meter.title = `${used} of ${list.length} keys finished`;
     const fill = el("div");
     fill.style.width = list.length ? (used / list.length) * 100 + "%" : "0";
     meter.appendChild(fill);
@@ -218,16 +252,19 @@
     const showUsed = $("showUsed").checked;
     const visible = list
       .filter((k) => showUsed || !k.usedAt)
-      .sort((a, b) => (a.usedAt ? 1 : 0) - (b.usedAt ? 1 : 0) || String(b.createdAt).localeCompare(String(a.createdAt)));
+      .sort((a, b) => keyOrder(a) - keyOrder(b) || String(b.createdAt).localeCompare(String(a.createdAt)));
     visible.forEach((k) => {
-      const chip = el("span", k.key, "key-chip" + (k.usedAt ? " used" : ""));
-      chip.title = k.usedAt ? `Used by ${k.usedBy || "?"} · ${fmtDate(k.usedAt)}` : "Unused";
+      const chip = el("span", k.key, "key-chip" + (k.usedAt ? " used" : k.preAt ? " started" : ""));
+      chip.title = k.usedAt ? `Finished by ${k.usedBy || "?"} · ${fmtDate(k.usedAt)}`
+        : k.preAt ? `Pre-evaluation done ${fmtDate(k.preAt)} · waiting for post-evaluation` : "Not used yet";
       grid.appendChild(chip);
     });
     if (!visible.length) {
-      grid.appendChild(el("p", list.length ? "All keys for this topic have been used. Generate more above." : "No keys yet. Generate some above.", "muted"));
+      grid.appendChild(el("p", list.length ? "All keys for this topic are finished. Generate more above." : "No keys yet. Generate some above.", "muted"));
     }
   }
+
+  function keyOrder(k) { return k.usedAt ? 2 : k.preAt ? 1 : 0; }
 
   $("showUsed").addEventListener("change", renderKeys);
 
@@ -255,7 +292,7 @@
 
   $("printKeysBtn").addEventListener("click", () => {
     const t = currentTopic();
-    const unused = topicKeys().filter((k) => !k.usedAt);
+    const unused = topicKeys().filter((k) => !k.usedAt && !k.preAt);
     if (!unused.length) return toast("No unused keys to print.", true);
     const url = new URL("index.html", location.href).href;
     const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
@@ -264,7 +301,7 @@
         <div class="topic">${esc(t.name)}</div>
         <div class="key">${esc(k.key)}</div>
         <div class="url">${esc(url)}</div>
-        <div class="note">One-time passkey for the evaluation &amp; e-certificate</div>
+        <div class="note">Use before the demo (pre-evaluation) and again after (post-evaluation &amp; e-certificate)</div>
       </div>`).join("");
     const w = window.open("", "_blank");
     if (!w) return toast("Allow pop-ups to print the keys.", true);
@@ -286,9 +323,9 @@
   $("keysCsvBtn").addEventListener("click", () => {
     const t = currentTopic();
     const list = topicKeys();
-    const lines = [["Passkey", "Topic", "Created", "Status", "Used at", "Used by"].join(",")];
-    list.forEach((k) => lines.push([k.key, t.name, fmtDate(k.createdAt), k.usedAt ? "Used" : "Unused",
-      k.usedAt ? fmtDate(k.usedAt) : "", k.usedBy || ""].map(csvCell).join(",")));
+    const lines = [["Passkey", "Topic", "Created", "Status", "Pre-evaluation at", "Finished at", "Finished by"].join(",")];
+    list.forEach((k) => lines.push([k.key, t.name, fmtDate(k.createdAt), k.usedAt ? "Finished" : k.preAt ? "Pre done" : "Not used",
+      k.preAt ? fmtDate(k.preAt) : "", k.usedAt ? fmtDate(k.usedAt) : "", k.usedBy || ""].map(csvCell).join(",")));
     download(`Passkeys_${safeName(t.name)}.csv`, BOM + lines.join("\r\n"), "text/csv;charset=utf-8");
   });
 
@@ -324,7 +361,7 @@
   }
 
   function renderTally() {
-    const list = topicRows();
+    const list = attendeeRows();
     const isAll = currentTopicId() === ALL;
     $("tallySub").textContent = `${list.length} attendee${list.length === 1 ? "" : "s"} · ${isAll ? "all topics" : topicNameOf(currentTopicId())}`;
     drawBars($("byCollege"), tally(list, "college", cfg.COLLEGES || [], true), list.length);
@@ -370,15 +407,49 @@
     });
   }
 
-  // ---------- Table ----------
+  function renderPreSummary() {
+    const t = currentTopicId();
+    const box = $("preSummary");
+    box.innerHTML = "";
+    if (t === ALL) {
+      box.appendChild(el("p", "Pick a topic to see the average for each of its pre-evaluation statements.", "muted"));
+      return;
+    }
+    const list = topicPreRows();
+    preQuestionsFor(t).forEach((q, i) => {
+      const a = avg(list, q.id);
+      const row = el("div", undefined, "bar-row");
+      const top = el("div", undefined, "top");
+      top.append(el("span", `${i + 1}. ${q.short}`), el("b", a ? a.toFixed(2) : "–"));
+      top.title = q.label;
+      const bar = el("div", undefined, "bar");
+      const fill = el("div");
+      fill.style.width = (a / 5) * 100 + "%";
+      bar.appendChild(fill);
+      row.append(top, bar);
+      box.appendChild(row);
+    });
+  }
+
+  // ---------- Tables ----------
   function renderTable() {
     const list = tableRows();
-    const table = $("table");
+    drawTable($("table"), columns, list);
+    $("countLabel").textContent = `Showing ${list.length} of ${topicRows().length} response(s)`;
+  }
+
+  function renderPreTable() {
+    const list = preTableRows();
+    drawTable($("preTable"), preColumns(), list);
+    $("preCountLabel").textContent = `Showing ${list.length} of ${topicPreRows().length} pre-evaluation(s)`;
+  }
+
+  function drawTable(table, cols, list) {
     table.innerHTML = "";
 
     const thead = el("thead"), htr = el("tr");
     htr.appendChild(el("th", "#"));
-    columns.forEach((c) => {
+    cols.forEach((c) => {
       const th = el("th", c.short);
       th.title = c.label;
       htr.appendChild(th);
@@ -390,7 +461,7 @@
     list.forEach((r, i) => {
       const tr = el("tr");
       tr.appendChild(el("td", String(i + 1)));
-      columns.forEach((c) => {
+      cols.forEach((c) => {
         const v = c.id === "timestamp" ? fmtDate(r[c.id]) : String(r[c.id] ?? "");
         tr.appendChild(el("td", v, c.rating ? "num" : c.wrap ? "wrap" : ""));
       });
@@ -398,12 +469,11 @@
     });
     if (!list.length) {
       const tr = el("tr"), td = el("td", "No responses yet.", "center muted");
-      td.colSpan = columns.length + 1;
+      td.colSpan = cols.length + 1;
       tr.appendChild(td);
       tbody.appendChild(tr);
     }
     table.appendChild(tbody);
-    $("countLabel").textContent = `Showing ${list.length} of ${topicRows().length} response(s)`;
   }
 
   // ---------- Export ----------
@@ -433,13 +503,15 @@
     return safeName(t === ALL ? "All_Topics" : topicNameOf(t)) + "_" + new Date().toISOString().slice(0, 10);
   }
 
-  function downloadCsv(list, base) {
-    const lines = [columns.map((c) => csvCell(c.label)).join(",")];
-    list.forEach((r) => lines.push(columns.map((c) => csvCell(c.id === "timestamp" ? fmtDate(r[c.id]) : r[c.id])).join(",")));
+  function downloadCsv(list, base, cols) {
+    cols = cols || columns;
+    const lines = [cols.map((c) => csvCell(c.label)).join(",")];
+    list.forEach((r) => lines.push(cols.map((c) => csvCell(c.id === "timestamp" ? fmtDate(r[c.id]) : r[c.id])).join(",")));
     download(base + ".csv", BOM + lines.join("\r\n"), "text/csv;charset=utf-8");
   }
 
-  $("csvBtn").addEventListener("click", () => downloadCsv(tableRows(), fileBase()));
+  $("csvBtn").addEventListener("click", () => downloadCsv(tableRows(), "Post_" + fileBase()));
+  $("preCsvBtn").addEventListener("click", () => downloadCsv(preTableRows(), "Pre_" + fileBase(), preColumns()));
 
   $("jsonBtn").addEventListener("click", () =>
     download(fileBase() + ".json", JSON.stringify(tableRows(), null, 2), "application/json"));
@@ -455,10 +527,11 @@
 
   function updateClear() {
     const t = clearTarget();
-    const r = rowsFor(rows, t).length, k = rowsFor(keys, t).length;
+    const r = rowsFor(rows, t).length, p = rowsFor(preRows, t).length, k = rowsFor(keys, t).length;
     const where = t === "*" ? "ALL topics" : topicNameOf(t);
     $("clearSummary").textContent =
-      `This will permanently delete ${r} response${r === 1 ? "" : "s"} and ${k} passkey${k === 1 ? "" : "s"} ` +
+      `This will permanently delete ${p} pre-evaluation${p === 1 ? "" : "s"}, ${r} post-evaluation${r === 1 ? "" : "s"} ` +
+      `and ${k} passkey${k === 1 ? "" : "s"} ` +
       `for ${where}, and switch ${t === "*" ? "every topic" : "this topic"} to CLOSED.`;
     $("clearGo").disabled = $("clearConfirm").value.trim().toUpperCase() !== "DELETE";
   }
@@ -483,7 +556,10 @@
 
   $("clearBackupBtn").addEventListener("click", () => {
     const t = clearTarget();
-    downloadCsv(rowsFor(rows, t), "BACKUP_" + safeName(t === "*" ? "All_Topics" : topicNameOf(t)) + "_" + new Date().toISOString().slice(0, 10));
+    const base = safeName(t === "*" ? "All_Topics" : topicNameOf(t)) + "_" + new Date().toISOString().slice(0, 10);
+    downloadCsv(rowsFor(rows, t), "BACKUP_Post_" + base);
+    // second file a moment later so the browser doesn't drop it
+    setTimeout(() => downloadCsv(rowsFor(preRows, t), "BACKUP_Pre_" + base, preColumns()), 300);
   });
 
   $("clearGo").addEventListener("click", async () => {
@@ -496,7 +572,7 @@
       const res = await API.clearData(adminKey(), t);
       dialog.close();
       await load();
-      toast(`Cleared ${res.removedResponses} response(s) and ${res.removedKeys} passkey(s).`);
+      toast(`Cleared ${res.removedPre} pre-evaluation(s), ${res.removedResponses} post-evaluation(s) and ${res.removedKeys} passkey(s).`);
     } catch (err) {
       $("clearError").textContent = "Could not clear data: " + err.message;
     } finally {
@@ -507,6 +583,7 @@
 
   // ---------- Events ----------
   $("search").addEventListener("input", renderTable);
+  $("preSearch").addEventListener("input", renderPreTable);
 
   $("loginForm").addEventListener("submit", (e) => {
     e.preventDefault();
@@ -522,7 +599,7 @@
 
   $("logoutBtn").addEventListener("click", () => {
     sessionStorage.removeItem(SESSION_KEY);
-    rows = []; keys = []; status = {};
+    rows = []; preRows = []; keys = []; status = {};
     $("adminKey").value = "";
     $("dashView").classList.add("hidden");
     $("loginView").classList.remove("hidden");

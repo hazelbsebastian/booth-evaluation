@@ -80,7 +80,7 @@
         <!-- Passkeys -->
         <section class="paper-card" id="keysCard">
           <h2 class="card-title">Passkeys</h2>
-          <p class="card-sub">Give one passkey to each participant. Each works <b>once</b>, only for this topic.</p>
+          <p class="card-sub">Give one passkey to each participant, only for this topic. It's used <b>before</b> the demo (pre-evaluation) and <b>after</b> (post-evaluation &amp; certificate).</p>
           <div class="key-stats" id="keyStats"></div>
           <form class="key-gen" id="genForm">
             <label for="genCount">Generate</label>
@@ -91,7 +91,7 @@
           <div class="key-actions">
             <button class="btn yellow small" type="button" id="printKeysBtn">🖨 Print unused keys</button>
             <button class="btn light small" type="button" id="keysCsvBtn">⬇ Keys CSV</button>
-            <label class="check"><input type="checkbox" id="showUsed"> Show used keys</label>
+            <label class="check"><input type="checkbox" id="showUsed"> Show finished keys</label>
           </div>
           <div class="key-grid" id="keyGrid"></div>
         </section>
@@ -107,15 +107,28 @@
         </section>
       </div>
 
+      <!-- Pre-evaluation -->
       <section class="paper-card">
-        <h2 class="card-title">Rating Summary</h2>
-        <p class="card-sub">Average score per question (5 = Strongly Agree)</p>
+        <h2 class="card-title">Pre-Evaluation</h2>
+        <p class="card-sub">Before the demo: what participants already knew. Average per statement (5 = Strongly Agree)</p>
+        <div id="preSummary"></div>
+        <div class="toolbar" style="margin-top:18px">
+          <input type="search" id="preSearch" placeholder="Search name, email, college, passkey…" aria-label="Search pre-evaluations">
+          <button class="btn yellow small" id="preCsvBtn" type="button">⬇ Download CSV (Excel)</button>
+        </div>
+        <p class="muted" id="preCountLabel" style="margin:0 0 8px"></p>
+        <div class="table-wrap"><table id="preTable"></table></div>
+      </section>
+
+      <section class="paper-card">
+        <h2 class="card-title">Post-Evaluation Summary</h2>
+        <p class="card-sub">After the demo: average score per question (5 = Strongly Agree)</p>
         <div id="summary"></div>
       </section>
 
       <!-- Table -->
       <section class="paper-card">
-        <h2 class="card-title">Responses</h2>
+        <h2 class="card-title">Post-Evaluation Responses</h2>
         <div class="toolbar" style="margin-top:12px">
           <input type="search" id="search" placeholder="Search name, email, college, passkey…" aria-label="Search responses">
           <button class="btn yellow small" id="csvBtn" type="button">⬇ Download CSV (Excel)</button>
