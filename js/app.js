@@ -272,7 +272,9 @@
     btn.disabled = true;
     btn.textContent = "Submitting…";
     try {
-      await API.submit(state.pass, Object.assign({}, state.attendee, answers));
+      await API.submit(state.pass, Object.assign({}, state.attendee, answers), (n) => {
+        btn.textContent = `Lots of students are submitting… retrying (${n})`;
+      });
       $("doneName").textContent = state.attendee.name;
       show("viewDone");
       await makeCertificate(true);

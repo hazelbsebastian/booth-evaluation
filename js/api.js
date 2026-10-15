@@ -9,17 +9,52 @@
   const KEY_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // no 0/O/1/I
   const isDemo = !cfg.SCRIPT_URL;
 
+  // Answers the server gives on purpose (wrong key, closed topic, ...). Anything else
+  // (busy server, dropped connection, Google error page) is worth retrying.
+  const FINAL_ERRORS = /invalid passkey|already been used|closed right now|name is required|wrong password|admin_key|missing topic|unknown action/i;
+
+  function failure(message, retryable) {
+    const err = new Error(message);
+    err.retryable = retryable;
+    return err;
+  }
+
   async function post(payload) {
-    // text/plain avoids a CORS preflight, which Apps Script does not support.
-    const res = await fetch(cfg.SCRIPT_URL, {
-      method: "POST",
-      headers: { "Content-Type": "text/plain;charset=utf-8" },
-      body: JSON.stringify(payload)
-    });
-    if (!res.ok) throw new Error("Server error (" + res.status + ")");
-    const data = await res.json();
-    if (!data.ok) throw new Error(data.error || "Request failed");
+    let res;
+    try {
+      // text/plain avoids a CORS preflight, which Apps Script does not support.
+      res = await fetch(cfg.SCRIPT_URL, {
+        method: "POST",
+        headers: { "Content-Type": "text/plain;charset=utf-8" },
+        body: JSON.stringify(payload)
+      });
+    } catch (e) {
+      throw failure("Network problem. Please check your internet connection", true);
+    }
+    if (!res.ok) throw failure("Server error (" + res.status + ")", res.status === 429 || res.status >= 500);
+    let data;
+    try { data = await res.json(); } catch (e) { throw failure("The server is busy", true); }
+    if (!data.ok) {
+      const msg = String(data.error || "Request failed").replace(/^BUSY:\s*/, "");
+      throw failure(msg, !FINAL_ERRORS.test(msg));
+    }
     return data;
+  }
+
+  // Retries busy/network failures with growing, randomized waits (about a minute in total),
+  // so a crowd of students submitting at once doesn't all retry at the same instant.
+  async function postWithRetry(payload, onRetry) {
+    const waits = [1500, 3000, 5000, 8000, 12000, 15000];
+    for (let attempt = 0; ; attempt++) {
+      try {
+        return await post(payload);
+      } catch (err) {
+        err.attempt = attempt;
+        if (!err.retryable || attempt >= waits.length) throw err;
+        if (onRetry) onRetry(attempt + 1);
+        await new Promise((r) => setTimeout(r, waits[attempt] * (0.6 + Math.random() * 0.8)));
+      }
+    }
   }
 
   // ---------- Demo storage ----------
@@ -95,11 +130,11 @@
         const k = demoFindOpenKey(key);
         return { key: k.key, topic: k.topic, topicName: k.topicName };
       }
-      return (await post({ action: "checkKey", key })).key;
+      return (await postWithRetry({ action: "checkKey", key })).key;
     },
 
-    // Saves the evaluation and uses up the passkey.
-    async submit(key, record) {
+    // Saves the evaluation and uses up the passkey. onRetry(n) is called before each retry.
+    async submit(key, record, onRetry) {
       if (isDemo) {
         const k = demoFindOpenKey(key);
         const now = new Date().toISOString();
@@ -113,7 +148,14 @@
         writeLocal(DEMO_KEYS, keys);
         return { ok: true };
       }
-      return post({ action: "submit", key, data: record });
+      try {
+        return await postWithRetry({ action: "submit", key, data: record }, onRetry);
+      } catch (err) {
+        // A retry that finds the key already used means an earlier attempt went through
+        // (the connection dropped before the reply arrived).
+        if (err.attempt > 0 && /already been used/i.test(err.message)) return { ok: true };
+        throw err;
+      }
     },
 
     // ---------- Admin ----------
@@ -123,7 +165,7 @@
         checkDemoAdmin(adminKey);
         return { rows: readLocal(DEMO_ROWS, []), keys: readLocal(DEMO_KEYS, []), status: readLocal(DEMO_STATUS, {}) };
       }
-      const d = await post({ action: "adminData", adminKey });
+      const d = await postWithRetry({ action: "adminData", adminKey });
       return { rows: d.rows, keys: d.keys, status: d.status };
     },
 
