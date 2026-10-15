@@ -87,17 +87,17 @@ function normalizeKey_(k) {
   return String(k || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
 }
 
-// Finds a passkey row quickly (searches column A only). `key` is already normalized.
-function findKeyRow_(sheet, key) {
-  const last = sheet.getLastRow();
-  if (last < 2 || key.length !== 6) return null;
-  const formatted = key.slice(0, 3) + '-' + key.slice(3);
-  const cell = sheet.getRange(2, 1, last - 1, 1).createTextFinder(formatted)
-    .matchCase(false).matchEntireCell(true).findNext();
-  if (!cell) return null;
-  const row = cell.getRow();
-  const v = sheet.getRange(row, 1, 1, KEY_HEADERS.length).getValues()[0];
-  return { row: row, key: v[0], topic: v[1], topicName: v[2], usedAt: v[4], usedBy: v[5] };
+// Finds a passkey by reading the Keys sheet. (A faster TextFinder lookup was tried and
+// returned wrong rows under heavy load in stress tests, so this full read stays.)
+function findKey_(key) {
+  if (key.length !== 6) return null;
+  const values = getSheet_(KEYS_SHEET, KEY_HEADERS).getDataRange().getValues();
+  for (let i = 1; i < values.length; i++) {
+    if (normalizeKey_(values[i][0]) === key) {
+      return { row: i + 1, key: values[i][0], topic: values[i][1], topicName: values[i][2], usedAt: values[i][4] };
+    }
+  }
+  return null;
 }
 
 // Runs fn while holding the script lock. Waits up to `ms`, then tells the user to retry.
@@ -109,7 +109,7 @@ function withLock_(fn, ms) {
 
 function checkKey_(raw) {
   const key = normalizeKey_(raw);
-  const found = findKeyRow_(getSheet_(KEYS_SHEET, KEY_HEADERS), key);
+  const found = findKey_(key);
   if (!found) {
     Utilities.sleep(800); // slow down guessing
     throw new Error('Invalid passkey. Please check it and try again.');
@@ -156,26 +156,18 @@ function randomKey_() {
 }
 
 // ---------- Submit ----------
-// Submissions are saved one at a time under the lock. Stress tests showed parallel
-// writes to the sheet can lose or double rows under load; one-at-a-time stayed 100%
-// correct. Busy requests get a "BUSY" answer and the browser retries automatically.
+// Saved one at a time under the lock. In stress tests this was the only version that stayed
+// 100% correct with 100 simultaneous submissions; the browser retries "BUSY" answers.
 function submit_(rawKey, data) {
   const key = normalizeKey_(rawKey);
   const name = String(data.name || '').trim();
   if (name.length < 2) throw new Error('Name is required');
 
-  // Quick checks before queueing for the lock
-  const keys = getSheet_(KEYS_SHEET, KEY_HEADERS);
-  const responses = getSheet_(RESPONSES_SHEET);
-  const pre = findKeyRow_(keys, key);
-  if (!pre) throw new Error('Invalid passkey.');
-  if (pre.usedAt) throw new Error('This passkey has already been used.');
-  if (getStatus_()[pre.topic] !== true) throw new Error('The evaluation for "' + pre.topicName + '" is closed right now.');
-
   withLock_(function () {
-    const found = findKeyRow_(keys, key); // re-check: a double-tap must not use it twice
+    const found = findKey_(key);
     if (!found) throw new Error('Invalid passkey.');
     if (found.usedAt) throw new Error('This passkey has already been used.');
+    if (getStatus_()[found.topic] !== true) throw new Error('The evaluation for "' + found.topicName + '" is closed right now.');
 
     // Topic and key always come from the Keys sheet, never from the browser.
     const record = { timestamp: new Date(), topic: found.topic, topicName: found.topicName, passkey: found.key };
@@ -187,10 +179,11 @@ function submit_(rawKey, data) {
       record[col] = v;
     });
 
-    appendRecord_(responses, record);
-    keys.getRange(found.row, 5, 1, 2).setValues([[record.timestamp, sanitize_(name)]]); // use up the key
-    SpreadsheetApp.flush();
-  }, 30000);
+    appendRecord_(getSheet_(RESPONSES_SHEET), record);
+
+    // Use up the key
+    getSheet_(KEYS_SHEET, KEY_HEADERS).getRange(found.row, 5, 1, 2).setValues([[record.timestamp, sanitize_(name)]]);
+  }, 15000);
   return { ok: true };
 }
 

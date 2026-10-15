@@ -21,19 +21,28 @@
 
   async function post(payload) {
     let res;
+    // Give up on a reply after 45s and retry; a stuck reply happens under heavy load.
+    const ctrl = typeof AbortController === "function" ? new AbortController() : null;
+    const timer = ctrl && setTimeout(() => ctrl.abort(), 45000);
     try {
       // text/plain avoids a CORS preflight, which Apps Script does not support.
       res = await fetch(cfg.SCRIPT_URL, {
         method: "POST",
         headers: { "Content-Type": "text/plain;charset=utf-8" },
-        body: JSON.stringify(payload)
+        body: JSON.stringify(payload),
+        signal: ctrl ? ctrl.signal : undefined
       });
     } catch (e) {
+      if (timer) clearTimeout(timer);
       throw failure("Network problem. Please check your internet connection", true);
     }
-    if (!res.ok) throw failure("Server error (" + res.status + ")", res.status === 429 || res.status >= 500);
+    if (!res.ok) {
+      if (timer) clearTimeout(timer);
+      throw failure("Server error (" + res.status + ")", res.status === 429 || res.status >= 500);
+    }
     let data;
     try { data = await res.json(); } catch (e) { throw failure("The server is busy", true); }
+    finally { if (timer) clearTimeout(timer); }
     if (!data.ok) {
       const msg = String(data.error || "Request failed").replace(/^BUSY:\s*/, "");
       throw failure(msg, !FINAL_ERRORS.test(msg));
