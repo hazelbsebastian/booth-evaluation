@@ -156,52 +156,41 @@ function randomKey_() {
 }
 
 // ---------- Submit ----------
-// Only claiming the passkey is done under the lock (a fraction of a second), so many
-// students can submit at once. appendRow is atomic, so responses are saved in parallel.
+// Submissions are saved one at a time under the lock. Stress tests showed parallel
+// writes to the sheet can lose or double rows under load; one-at-a-time stayed 100%
+// correct. Busy requests get a "BUSY" answer and the browser retries automatically.
 function submit_(rawKey, data) {
   const key = normalizeKey_(rawKey);
   const name = String(data.name || '').trim();
   if (name.length < 2) throw new Error('Name is required');
 
+  // Quick checks before queueing for the lock
   const keys = getSheet_(KEYS_SHEET, KEY_HEADERS);
+  const responses = getSheet_(RESPONSES_SHEET);
   const pre = findKeyRow_(keys, key);
   if (!pre) throw new Error('Invalid passkey.');
   if (pre.usedAt) throw new Error('This passkey has already been used.');
   if (getStatus_()[pre.topic] !== true) throw new Error('The evaluation for "' + pre.topicName + '" is closed right now.');
 
-  // Claim the key (re-checked under the lock so a double-tap can't use it twice)
-  const now = new Date();
-  const found = withLock_(function () {
-    const f = findKeyRow_(keys, key);
-    if (!f) throw new Error('Invalid passkey.');
-    if (f.usedAt) throw new Error('This passkey has already been used.');
-    keys.getRange(f.row, 5, 1, 2).setValues([[now, sanitize_(name)]]);
+  withLock_(function () {
+    const found = findKeyRow_(keys, key); // re-check: a double-tap must not use it twice
+    if (!found) throw new Error('Invalid passkey.');
+    if (found.usedAt) throw new Error('This passkey has already been used.');
+
+    // Topic and key always come from the Keys sheet, never from the browser.
+    const record = { timestamp: new Date(), topic: found.topic, topicName: found.topicName, passkey: found.key };
+    Object.keys(data).slice(0, 50).forEach(function (k) {
+      const col = String(k).replace(/[^\w]/g, '').slice(0, 40);
+      if (!col || record.hasOwnProperty(col)) return;
+      let v = data[k];
+      if (typeof v !== 'number') v = sanitize_(String(v == null ? '' : v).slice(0, 1000));
+      record[col] = v;
+    });
+
+    appendRecord_(responses, record);
+    keys.getRange(found.row, 5, 1, 2).setValues([[record.timestamp, sanitize_(name)]]); // use up the key
     SpreadsheetApp.flush();
-    return f;
-  }, 60000);
-
-  // Topic and key always come from the Keys sheet, never from the browser.
-  const record = { timestamp: now, topic: found.topic, topicName: found.topicName, passkey: found.key };
-  Object.keys(data).slice(0, 50).forEach(function (k) {
-    const col = String(k).replace(/[^\w]/g, '').slice(0, 40);
-    if (!col || record.hasOwnProperty(col)) return;
-    let v = data[k];
-    if (typeof v !== 'number') v = sanitize_(String(v == null ? '' : v).slice(0, 1000));
-    record[col] = v;
-  });
-
-  try {
-    appendRecord_(getSheet_(RESPONSES_SHEET), record);
-  } catch (err) {
-    // Saving failed: give the key back so the student can submit again.
-    try {
-      withLock_(function () {
-        const f = findKeyRow_(keys, key);
-        if (f) keys.getRange(f.row, 5, 1, 2).setValues([['', '']]);
-      }, 30000);
-    } catch (e) { /* ignore */ }
-    throw err;
-  }
+  }, 30000);
   return { ok: true };
 }
 
@@ -241,18 +230,16 @@ function removeRows_(sheet, column, value, all) {
   return removed;
 }
 
+// Call while holding the lock. Adds any new column names to the header row, then the row.
 function appendRecord_(sheet, record) {
-  let headers = readHeaders_(sheet);
-  const missing = function () { return Object.keys(record).some(function (k) { return headers.indexOf(k) === -1; }); };
-  if (missing()) {
-    withLock_(function () {
-      headers = readHeaders_(sheet); // re-read: another request may have added them
-      if (!missing()) return;
-      Object.keys(record).forEach(function (k) { if (headers.indexOf(k) === -1) headers.push(k); });
-      sheet.getRange(1, 1, 1, headers.length).setValues([headers]).setFontWeight('bold');
-      sheet.setFrozenRows(1);
-      SpreadsheetApp.flush();
-    }, 60000);
+  const headers = readHeaders_(sheet);
+  let changed = false;
+  Object.keys(record).forEach(function (k) {
+    if (headers.indexOf(k) === -1) { headers.push(k); changed = true; }
+  });
+  if (changed) {
+    sheet.getRange(1, 1, 1, headers.length).setValues([headers]).setFontWeight('bold');
+    sheet.setFrozenRows(1);
   }
   sheet.appendRow(headers.map(function (h) { return record[h] !== undefined ? record[h] : ''; }));
 }
