@@ -25,8 +25,8 @@ window.APP_CONFIG = {
   //   nameY        how far down the participant's name is printed, in mm (page is 210mm tall)
   TOPICS: [
     { id: "utp", name: "UTP Cable Termination", certificate: "assets/certificates/utp-cable-termination.png", nameY: 111 },
-    { id: "router-wifi", name: "Router and Wi-Fi Configuration", certificate: "", nameY: 111 },
-    { id: "troubleshooting", name: "Basic Network Troubleshooting", certificate: "", nameY: 111 }
+    { id: "router-wifi", name: "Router and Wi-Fi Configuration", certificate: "assets/certificates/router-wifi-configuration.png", nameY: 111 },
+    { id: "troubleshooting", name: "Basic Network Troubleshooting", certificate: "assets/certificates/basic-network-troubleshooting.png", nameY: 111 }
   ],
 
   // How many passkeys the admin can generate at once.
