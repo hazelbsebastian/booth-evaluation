@@ -1,0 +1,691 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#4b3aa3">
+<title>Booth Evaluation System</title>
+<meta name="description" content="Project document for a passkey-based attendance, evaluation and e-certificate system built for a 4th Year IT Skills Demonstration.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Caveat:wght@700&family=Fredoka:wght@400;500;600;700&family=Patrick+Hand&display=swap" rel="stylesheet">
+<style>
+/* Layout: the system's own scrapbook look. Paper hero, then a torn purple band holding taped paper cards.
+   Single light theme on purpose, same as the live system. */
+:root {
+  --paper: #f1ede4;
+  --paper-2: #fbf9f4;
+  --white: #ffffff;
+  --ink: #1e1b2e;
+  --ink-soft: #55526a;
+  --purple: #4b3aa3;
+  --purple-dark: #33277a;
+  --lavender: #cdc4f2;
+  --lavender-soft: #ece8fc;
+  --tape: rgba(222, 207, 160, .82);
+  --yellow: #ffe27a;
+  --pink: #ff8fb4;
+  --green: #b8e86f;
+  --orange: #ffa66b;
+  --danger: #d33a4c;
+  --success: #2f9e5b;
+  --muted-key: #9a97a8;
+  color-scheme: light;
+
+  --font-display: "Fredoka", "Segoe UI", system-ui, sans-serif;
+  --font-hand: "Patrick Hand", "Segoe Print", "Comic Sans MS", cursive;
+  --font-script: "Caveat", "Segoe Script", cursive;
+  --font-mono: "Consolas", "Courier New", monospace;
+
+  --gutter-l: max(16px, env(safe-area-inset-left, 0px));
+  --gutter-r: max(16px, env(safe-area-inset-right, 0px));
+
+  --grain: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='220' height='220'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 .07 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+  --torn: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 20' preserveAspectRatio='none'><path d='M-2 22V10H0L5 7 11 11 16 5 23 9 29 3 35 10 41 6 48 12 53 5 60 9 66 3 72 10 78 5 85 11 91 5 97 9 104 4 109 9 115 4 120 10H122V22z'/></svg>");
+  --scribble: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 12' preserveAspectRatio='none'><path d='M2 8c30-6 55-4 80-2s60 2 80-3 30 1 36 0' fill='none' stroke='%234b3aa3' stroke-width='3' stroke-linecap='round'/></svg>");
+  --scribble-white: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 12' preserveAspectRatio='none'><path d='M2 8c30-6 55-4 80-2s60 2 80-3 30 1 36 0' fill='none' stroke='white' stroke-width='3' stroke-linecap='round'/></svg>");
+  --ellipse: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 80' preserveAspectRatio='none'><path d='M30 14C80-2 180 4 194 34s-60 44-120 42S2 58 8 36 60 6 110 8' fill='none' stroke='%231e1b2e' stroke-width='2.4' stroke-linecap='round'/></svg>");
+}
+
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  font-family: var(--font-hand);
+  font-size: 1.15rem;
+  line-height: 1.5;
+  color: var(--ink);
+  background: var(--paper) var(--grain);
+  overflow-x: hidden;
+}
+h1, h2, h3 { font-family: var(--font-display); line-height: 1.1; text-wrap: balance; }
+p { margin: 0; }
+a { color: var(--purple); }
+b, strong { font-family: var(--font-display); font-weight: 600; }
+code { font-family: var(--font-mono); font-size: .86em; background: var(--lavender-soft); padding: 1px 5px; border-radius: 4px; }
+.muted { color: var(--ink-soft); }
+:focus-visible { outline: 3px solid var(--yellow); outline-offset: 3px; }
+
+/* ---------- Hero ---------- */
+.hero {
+  position: relative;
+  max-width: 1100px;
+  margin: 0 auto;
+  padding-block: 40px 70px;
+  padding-left: var(--gutter-l);
+  padding-right: var(--gutter-r);
+  text-align: center;
+}
+.kicker {
+  display: inline-block;
+  font-family: var(--font-script);
+  font-weight: 700;
+  font-size: 1.6rem;
+  padding: 8px 26px;
+  background: var(--ellipse) center / 100% 100% no-repeat;
+  transform: rotate(-6deg);
+  margin-bottom: 4px;
+}
+.big-title {
+  margin: 0;
+  font-size: clamp(2rem, 8.8vw, 6.4rem);
+  font-weight: 700;
+  color: var(--purple);
+  letter-spacing: -.01em;
+  line-height: 1;
+  filter:
+    drop-shadow(2px 0 0 var(--white)) drop-shadow(-2px 0 0 var(--white))
+    drop-shadow(0 2px 0 var(--white)) drop-shadow(0 -2px 0 var(--white))
+    drop-shadow(5px 5px 0 var(--ink));
+}
+.big-title span { display: inline-block; transform: translateY(var(--y, 0)) rotate(var(--r, 0deg)); font-size: var(--s, 1em); }
+.brush-tag {
+  display: inline-block;
+  margin-top: 18px;
+  max-width: 100%;
+  padding: 10px 28px;
+  background: var(--ink);
+  color: var(--white);
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: clamp(.95rem, 3.2vw, 1.3rem);
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  transform: rotate(-2deg);
+  clip-path: polygon(3% 6%, 30% 0, 62% 5%, 97% 0, 100% 45%, 98% 100%, 60% 94%, 25% 100%, 1% 95%, 0 50%);
+}
+.lede { max-width: 60ch; margin: 22px auto 0; font-size: 1.25rem; }
+.event-meta { display: flex; justify-content: center; flex-wrap: wrap; gap: 6px 18px; margin-top: 16px; color: var(--ink-soft); font-size: 1.08rem; }
+.event-meta span { display: inline-flex; align-items: center; gap: 6px; }
+.event-meta svg { width: 18px; height: 18px; flex: none; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.hero-links { display: flex; justify-content: center; gap: 14px; flex-wrap: wrap; margin-top: 24px; }
+
+.doodle { position: absolute; fill: none; stroke: var(--ink); stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; pointer-events: none; }
+.doodle .dot { fill: var(--ink); }
+.doodle-text { position: absolute; font-family: var(--font-mono); font-size: .95rem; line-height: 1.25; letter-spacing: .12em; color: var(--ink); opacity: .55; pointer-events: none; }
+.d-laptop { width: 112px; top: 12%; right: 6%; transform: rotate(6deg); }
+.d-gear   { width: 48px; top: 52%; right: 4%; transform: rotate(12deg); }
+.d-code   { width: 52px; top: 9%; left: 12%; transform: rotate(-10deg); }
+.d-wifi   { width: 44px; bottom: 12%; right: 14%; }
+.d-term   { width: 52px; bottom: 18%; left: 6%; transform: rotate(-6deg); }
+.d-binary { top: 46%; left: 2%; transform: rotate(-90deg); transform-origin: left top; }
+@media (max-width: 860px) {
+  .d-laptop, .d-term, .d-binary, .d-gear { display: none; }
+  .d-code { width: 36px; top: 2%; left: 4%; }
+  .d-wifi { width: 30px; bottom: 4%; right: 6%; }
+}
+
+/* ---------- Buttons ---------- */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  padding: 12px 22px;
+  font-family: var(--font-display); font-weight: 600; font-size: 1.05rem;
+  color: var(--white); background: var(--purple);
+  border: 2px solid var(--ink); border-radius: 12px;
+  box-shadow: 4px 4px 0 var(--ink);
+  text-decoration: none;
+  transition: transform .12s, box-shadow .12s, background .15s;
+}
+.btn:hover { background: var(--purple-dark); transform: translate(-1px, -1px); box-shadow: 5px 5px 0 var(--ink); }
+.btn:active { transform: translate(3px, 3px); box-shadow: 1px 1px 0 var(--ink); }
+.btn.light { background: var(--paper-2); color: var(--ink); }
+.btn.light:hover { background: var(--white); }
+.btn.yellow { background: var(--yellow); color: var(--ink); }
+.btn svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
+
+/* ---------- Purple band ---------- */
+.band { position: relative; background: var(--purple) var(--grain); color: var(--white); padding-block: 30px 46px; }
+.band::before, .band::after {
+  content: ""; position: absolute; left: 0; right: 0; height: 22px;
+  -webkit-mask: var(--torn) repeat-x bottom / 160px 100%;
+          mask: var(--torn) repeat-x bottom / 160px 100%;
+}
+.band::before { top: -21px; height: 23px; background: var(--purple); }
+.band::after  { top: -28px; height: 18px; background: var(--lavender); z-index: -1; -webkit-mask-size: 130px 100%; mask-size: 130px 100%; }
+.band-inner { max-width: 940px; margin: 0 auto; padding-left: var(--gutter-l); padding-right: var(--gutter-r); display: flex; flex-direction: column; gap: 34px; }
+
+.band-heading { text-align: center; font-size: clamp(1.7rem, 5vw, 2.3rem); margin: 6px 0 0; color: var(--white); }
+.band-heading::after { content: ""; display: block; width: 180px; height: 10px; margin: 6px auto 0; background: var(--scribble-white) center / 100% 100% no-repeat; }
+
+/* ---------- Paper cards ---------- */
+.paper-card {
+  position: relative;
+  min-width: 0;
+  background: var(--paper-2) var(--grain);
+  color: var(--ink);
+  border-radius: 6px;
+  padding: 34px clamp(18px, 5vw, 44px) 32px;
+  box-shadow: 0 14px 34px rgba(10, 6, 40, .4);
+  display: flex; flex-direction: column; gap: 16px;
+}
+.card-title {
+  align-self: flex-start;
+  margin: 0;
+  font-size: clamp(1.6rem, 5vw, 2.1rem);
+  color: var(--purple);
+  padding-bottom: 8px;
+  background: var(--scribble) left bottom / 100% 10px no-repeat;
+}
+.card-sub { color: var(--ink-soft); max-width: 64ch; }
+.prose { display: flex; flex-direction: column; gap: 12px; max-width: 66ch; }
+.highlight {
+  background: linear-gradient(transparent 12%, var(--lavender) 12%, var(--lavender) 88%, transparent 88%);
+  padding: 2px 6px;
+  -webkit-box-decoration-break: clone; box-decoration-break: clone;
+}
+.section-label { font-family: var(--font-display); font-weight: 600; font-size: 1.2rem; color: var(--purple); margin-top: 8px; }
+
+.tape { position: absolute; width: 92px; height: 26px; background: var(--tape); box-shadow: 0 1px 2px rgba(0, 0, 0, .12); z-index: 2; }
+.tape.tl { top: -12px; left: -16px; transform: rotate(-28deg); }
+.tape.tr { top: -12px; right: -16px; transform: rotate(28deg); }
+.tape.tc { top: -14px; left: 50%; transform: translateX(-50%) rotate(-3deg); }
+
+/* ---------- Stat tiles ---------- */
+.stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-top: 6px; }
+.stat {
+  background: var(--white);
+  border: 2px solid var(--ink);
+  border-radius: 10px;
+  padding: 14px 14px 12px;
+  box-shadow: 3px 3px 0 var(--ink);
+}
+.stat:nth-child(odd) { transform: rotate(-1deg); }
+.stat:nth-child(even) { transform: rotate(1deg); }
+.stat .num { font-family: var(--font-display); font-weight: 700; font-size: 2rem; color: var(--purple); line-height: 1.1; font-variant-numeric: tabular-nums; }
+.stat .lbl { color: var(--ink-soft); line-height: 1.25; font-size: 1.02rem; }
+
+/* ---------- Steps ---------- */
+.steps { list-style: none; padding: 0; margin: 4px 0 0; display: grid; grid-template-columns: repeat(5, 1fr); gap: 14px; }
+.steps li {
+  display: flex; flex-direction: column; gap: 6px;
+  min-width: 0;
+  padding: 14px 14px 16px;
+  background: var(--white);
+  border: 2px solid var(--ink);
+  border-radius: 12px;
+}
+.steps .num {
+  font-family: var(--font-script); font-weight: 700; font-size: 2.6rem; line-height: .9;
+  color: var(--c); -webkit-text-stroke: 1.4px var(--ink);
+}
+.steps li:nth-child(1) { --c: var(--lavender); }
+.steps li:nth-child(2) { --c: var(--yellow); }
+.steps li:nth-child(3) { --c: var(--green); }
+.steps li:nth-child(4) { --c: var(--pink); }
+.steps li:nth-child(5) { --c: var(--orange); }
+.steps h3 { margin: 0; font-size: 1.12rem; color: var(--purple); }
+.steps p { font-size: 1rem; line-height: 1.3; color: var(--ink-soft); }
+.when { display: inline-block; align-self: flex-start; font-family: var(--font-display); font-weight: 600; font-size: .78rem; text-transform: uppercase; letter-spacing: .06em; padding: 2px 8px; border-radius: 999px; border: 1.5px solid var(--ink); }
+.when.before { background: var(--lavender-soft); }
+.when.after { background: var(--yellow); }
+
+/* ---------- Mock screens ---------- */
+.mocks { display: grid; grid-template-columns: 1fr 1.25fr; gap: 22px; align-items: start; margin-top: 8px; }
+.mock {
+  min-width: 0;
+  background: var(--paper);
+  border: 2px dashed var(--lavender);
+  border-radius: 12px;
+  padding: 18px 16px 14px;
+  display: flex; flex-direction: column; gap: 10px;
+}
+.mock-cap { font-family: var(--font-script); font-weight: 700; font-size: 1.3rem; color: var(--purple); transform: rotate(-2deg); align-self: flex-start; }
+.passkey-input {
+  text-align: center;
+  font-family: var(--font-mono); font-size: 1.9rem; font-weight: 700; letter-spacing: .25em;
+  padding: 12px 10px;
+  background: var(--white);
+  border: 2px solid var(--ink); border-radius: 10px;
+  box-shadow: 3px 3px 0 var(--ink);
+}
+.q-row { display: flex; gap: 10px; align-items: flex-start; }
+.q-num { flex: none; display: grid; place-items: center; width: 32px; height: 32px; font-family: var(--font-display); font-weight: 700; color: var(--white); background: var(--purple); border: 2px solid var(--ink); border-radius: 50%; transform: rotate(-6deg); box-shadow: 2px 2px 0 var(--ink); }
+.q-text { padding-top: 2px; line-height: 1.3; }
+.likert { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
+.likert span {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  min-height: 52px; padding: 4px 2px;
+  text-align: center; font-size: .78rem; line-height: 1.05;
+  background: var(--white); border: 2px solid var(--ink); border-radius: 10px;
+}
+.likert b { font-size: 1.2rem; }
+.likert .on { background: var(--purple); color: var(--white); box-shadow: 3px 3px 0 var(--ink); transform: translate(-1px, -2px) rotate(-1.5deg); }
+
+/* mock certificate: drawn, not the real one (the real one carries signatures) */
+.cert {
+  position: relative;
+  aspect-ratio: 297 / 210;
+  max-width: 100%;
+  background: var(--white);
+  box-shadow: 0 8px 18px rgba(10, 6, 40, .2);
+  transform: rotate(-1.2deg);
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2%;
+  overflow: hidden;
+  container-type: inline-size;
+}
+.cert::before, .cert::after { content: ""; position: absolute; width: 26%; aspect-ratio: 1; background: linear-gradient(135deg, var(--purple-dark), #8f4cf0); }
+.cert::before { top: 0; left: 0; clip-path: polygon(0 0, 100% 0, 0 100%); }
+.cert::after { bottom: 0; right: 0; clip-path: polygon(100% 0, 100% 100%, 0 100%); }
+.cert .c1 { font-family: var(--font-display); font-weight: 500; font-size: 9cqi; letter-spacing: .04em; line-height: 1; }
+.cert .c2 { font-family: var(--font-display); font-weight: 600; font-size: 3.4cqi; letter-spacing: .08em; }
+.cert .c3 { font-size: 3cqi; color: var(--ink-soft); margin-top: 2%; }
+.cert .c4 { font-family: var(--font-script); font-size: 8cqi; color: var(--ink); line-height: 1; }
+.cert .c5 { font-size: 2.8cqi; color: var(--ink-soft); max-width: 70%; text-align: center; line-height: 1.25; }
+.mock-note { font-size: .95rem; color: var(--ink-soft); line-height: 1.3; }
+
+/* ---------- Passkey lifecycle ---------- */
+.lifecycle { display: grid; grid-template-columns: 1fr auto 1fr auto 1fr; gap: 12px; align-items: stretch; margin-top: 6px; }
+.life { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; min-width: 0; padding: 14px; background: var(--white); border: 2px solid var(--ink); border-radius: 12px; }
+.life h3 { margin: 0; font-size: 1.08rem; }
+.life p { font-size: 1rem; line-height: 1.3; color: var(--ink-soft); }
+.arrow { align-self: center; font-family: var(--font-script); font-weight: 700; font-size: 2rem; color: var(--purple); line-height: 1; }
+.key-chip { padding: 4px 10px; font: 700 1.05rem var(--font-mono); letter-spacing: .12em; background: var(--white); border: 2px solid var(--ink); border-radius: 8px; }
+.key-chip.started { background: var(--lavender-soft); border-style: dashed; }
+.key-chip.used { color: var(--muted-key); border-color: #cfccd9; text-decoration: line-through; background: #f4f3f7; }
+
+.facts { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 26px; padding: 0; margin: 4px 0 0; list-style: none; }
+.facts li { position: relative; padding-left: 26px; min-width: 0; }
+.facts li::before { content: ""; position: absolute; left: 2px; top: .5em; width: 12px; height: 12px; border: 2px solid var(--ink); border-radius: 50%; background: var(--c, var(--lavender)); }
+.facts li:nth-child(4n+2) { --c: var(--yellow); }
+.facts li:nth-child(4n+3) { --c: var(--green); }
+.facts li:nth-child(4n+4) { --c: var(--pink); }
+
+/* ---------- Organizer ---------- */
+.org-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; align-items: start; }
+.topic-list { display: flex; flex-direction: column; gap: 10px; }
+.topic-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 14px; background: var(--white); border: 2px solid var(--ink); border-radius: 12px; }
+.topic-row .nm { font-family: var(--font-display); font-weight: 600; line-height: 1.2; min-width: 0; }
+.topic-row .st { display: block; font-size: .85rem; }
+.is-open { color: var(--success); }
+.is-closed { color: var(--danger); }
+.track { flex: none; position: relative; width: 56px; height: 30px; background: #d9d6e2; border: 2px solid var(--ink); border-radius: 999px; }
+.track::after { content: ""; position: absolute; top: 2px; left: 2px; width: 22px; height: 22px; background: var(--white); border: 2px solid var(--ink); border-radius: 50%; }
+.track.on { background: var(--green); }
+.track.on::after { transform: translateX(26px); }
+.key-grid { display: flex; flex-wrap: wrap; gap: 8px; }
+
+/* ---------- Architecture diagram ---------- */
+.arch-wrap { overflow-x: auto; margin-top: 6px; }
+.arch { display: grid; grid-template-columns: 1fr 70px 1fr 70px 1fr; align-items: center; min-width: 0; }
+.node { min-width: 0; padding: 14px 14px 12px; background: var(--white); border: 2.5px solid var(--ink); border-radius: 14px; box-shadow: 4px 4px 0 var(--ink); display: flex; flex-direction: column; gap: 6px; }
+.node.purple { background: var(--lavender-soft); }
+.node.yellow { background: #fff7d1; }
+.node h3 { margin: 0; font-size: 1.1rem; color: var(--purple); }
+.node .where { font-family: var(--font-display); font-weight: 500; font-size: .8rem; text-transform: uppercase; letter-spacing: .06em; color: var(--ink-soft); }
+.node ul { margin: 0; padding-left: 18px; font-size: 1rem; line-height: 1.3; }
+.link { display: flex; flex-direction: column; align-items: center; gap: 2px; font-size: .85rem; line-height: 1.1; text-align: center; color: var(--ink-soft); }
+.link svg { width: 60px; height: 20px; fill: none; stroke: var(--ink); stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+.tabs { display: flex; flex-wrap: wrap; gap: 6px; }
+.tab { font-family: var(--font-mono); font-size: .82rem; padding: 2px 8px; background: var(--white); border: 1.5px solid var(--ink); border-radius: 6px 6px 0 0; }
+
+/* ---------- Load story ---------- */
+.story { list-style: none; margin: 6px 0 0; padding: 0; display: flex; flex-direction: column; gap: 0; }
+.story li { position: relative; display: grid; grid-template-columns: 40px 1fr; gap: 14px; padding-bottom: 20px; }
+.story li:not(:last-child)::before { content: ""; position: absolute; left: 19px; top: 40px; bottom: 0; border-left: 2.5px dashed var(--lavender); }
+.story .dot { width: 40px; height: 40px; display: grid; place-items: center; font-family: var(--font-display); font-weight: 700; border: 2px solid var(--ink); border-radius: 50%; background: var(--white); }
+.story .bad .dot { background: var(--pink); }
+.story .good .dot { background: var(--green); }
+.story h3 { margin: 6px 0 4px; font-size: 1.12rem; }
+.story p { color: var(--ink-soft); max-width: 62ch; }
+.tag { display: inline-block; margin-left: 6px; font-family: var(--font-display); font-weight: 600; font-size: .75rem; text-transform: uppercase; letter-spacing: .06em; padding: 1px 8px; border-radius: 999px; border: 1.5px solid var(--ink); vertical-align: 2px; }
+.tag.no { background: var(--pink); }
+.tag.yes { background: var(--green); }
+
+.sticky-note { align-self: flex-start; max-width: 560px; padding: 14px 18px; color: var(--ink); background: var(--yellow); transform: rotate(-1deg); box-shadow: 0 6px 14px rgba(0, 0, 0, .18); }
+
+.backoff { display: flex; align-items: flex-end; gap: 8px; height: 110px; padding: 0 4px; border-bottom: 2px solid var(--ink); }
+.backoff .b { flex: 1; min-width: 0; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; height: 100%; }
+.backoff .bar { width: 100%; background: var(--purple); border: 2px solid var(--ink); border-bottom: none; border-radius: 6px 6px 0 0; position: relative; }
+.backoff .bar::before { content: ""; position: absolute; left: -2px; right: -2px; bottom: 100%; height: var(--j); background: repeating-linear-gradient(45deg, var(--lavender) 0 4px, transparent 4px 8px); border: 2px dashed var(--purple); border-bottom: none; border-radius: 6px 6px 0 0; }
+.backoff .v { font-family: var(--font-display); font-weight: 600; font-size: .85rem; margin-bottom: 2px; font-variant-numeric: tabular-nums; }
+.backoff-labels { display: flex; gap: 8px; padding: 4px 4px 0; }
+.backoff-labels span { flex: 1; text-align: center; font-size: .85rem; color: var(--ink-soft); }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: .95rem; color: var(--ink-soft); }
+.legend i { display: inline-block; width: 14px; height: 14px; margin-right: 6px; vertical-align: -2px; border: 2px solid var(--ink); border-radius: 3px; background: var(--purple); }
+.legend i.j { background: repeating-linear-gradient(45deg, var(--lavender) 0 3px, var(--white) 3px 6px); border-style: dashed; border-color: var(--purple); }
+
+/* ---------- Contents ---------- */
+.toc { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 0 30px; }
+.toc a { display: flex; align-items: baseline; gap: 10px; padding: 8px 2px; color: var(--ink); text-decoration: none; border-bottom: 2px dashed rgba(30, 27, 46, .14); }
+.toc a:hover { color: var(--purple); background: var(--lavender-soft); }
+.toc .n { flex: none; width: 1.4em; font-family: var(--font-display); font-weight: 700; color: var(--purple); font-variant-numeric: tabular-nums; }
+.doc-info { display: flex; flex-wrap: wrap; gap: 6px 22px; font-size: 1rem; color: var(--ink-soft); }
+.doc-info b { color: var(--ink); }
+.sec-no { color: var(--ink); margin-right: .25em; }
+@media (max-width: 560px) { .toc { grid-template-columns: 1fr; } }
+
+/* ---------- Chips ---------- */
+.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip { padding: 4px 12px; font-size: 1.02rem; background: var(--lavender-soft); border: 2px solid var(--ink); border-radius: 999px; }
+.chip b { color: var(--purple); }
+
+.links-row { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 6px; }
+.url { font-family: var(--font-mono); font-size: .9rem; color: var(--ink-soft); word-break: break-all; }
+
+/* ---------- Footer notes ---------- */
+.band-footer { display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; flex-wrap: wrap; }
+.note { font-size: 1.05rem; color: var(--ink); background: var(--paper-2) var(--grain); padding: 12px 16px; max-width: 250px; box-shadow: 0 6px 14px rgba(0, 0, 0, .25); }
+.note:first-child { transform: rotate(-3deg); }
+.note:last-child { transform: rotate(3deg); }
+.note .circled { padding: 0 8px; background: var(--ellipse) center / 100% 100% no-repeat; }
+.note-from { display: block; font-family: var(--font-script); font-weight: 700; font-size: 1.25rem; color: var(--purple); }
+
+/* ---------- Responsive ---------- */
+@media (max-width: 860px) {
+  .steps { grid-template-columns: 1fr 1fr; }
+  .steps li:last-child { grid-column: 1 / -1; }
+  .stats { grid-template-columns: 1fr 1fr; }
+  .mocks, .org-grid { grid-template-columns: 1fr; }
+  .lifecycle { grid-template-columns: 1fr; }
+  .lifecycle .arrow { transform: rotate(90deg); justify-self: center; }
+  .arch { grid-template-columns: 1fr; gap: 6px; }
+  .arch .link { flex-direction: row; justify-content: center; gap: 8px; padding: 4px 0; }
+  .arch .link svg { transform: rotate(90deg); width: 34px; height: 20px; }
+}
+@media (max-width: 560px) {
+  body { font-size: 1.08rem; }
+  .hero { padding-block: 22px 52px; }
+  .kicker { font-size: 1.3rem; padding: 6px 20px; }
+  .big-title { font-size: 11vw; }
+  .big-title span { transform: translateY(calc(var(--y, 0px) / 3)) rotate(var(--r, 0deg)); font-size: 1em; }
+  .brush-tag { padding: 8px 16px; }
+  .lede { font-size: 1.12rem; }
+  .paper-card { padding: 28px 16px 24px; }
+  .tape { width: 70px; height: 22px; }
+  .tape.tl { left: -6px; }
+  .tape.tr { right: -6px; }
+  .steps { grid-template-columns: 1fr; }
+  .facts { grid-template-columns: 1fr; }
+  .passkey-input { font-size: 1.5rem; letter-spacing: .18em; }
+  .likert span { font-size: 0; min-height: 44px; }
+  .likert b { font-size: 1.1rem; }
+  .hero-links .btn, .links-row .btn { flex: 1 1 100%; }
+}
+@media (hover: none) { .btn:hover { transform: none; box-shadow: 4px 4px 0 var(--ink); } }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <svg class="doodle d-laptop" viewBox="0 0 120 70" aria-hidden="true"><path d="M22 6h76v44H22z"/><path d="M8 58h104l-6 8H14z"/><path d="M48 20l-8 8 8 8M72 20l8 8-8 8M64 16l-8 24"/></svg>
+  <svg class="doodle d-gear" viewBox="0 0 50 50" aria-hidden="true"><circle cx="25" cy="25" r="8"/><path d="M25 4v7M25 39v7M4 25h7M39 25h7M10 10l5 5M35 35l5 5M40 10l-5 5M15 35l-5 5"/><circle cx="25" cy="25" r="14"/></svg>
+  <svg class="doodle d-code" viewBox="0 0 60 40" aria-hidden="true"><path d="M18 8L6 20l12 12M42 8l12 12-12 12M35 4l-10 32"/></svg>
+  <svg class="doodle d-wifi" viewBox="0 0 50 40" aria-hidden="true"><path d="M4 14c12-11 30-11 42 0M11 21c8-7 20-7 28 0M18 28c4-3 10-3 14 0"/><circle cx="25" cy="34" r="2" class="dot"/></svg>
+  <svg class="doodle d-term" viewBox="0 0 56 44" aria-hidden="true"><rect x="3" y="3" width="50" height="38" rx="5"/><path d="M3 12h50M12 22l6 5-6 5M24 33h10"/></svg>
+  <span class="doodle-text d-binary" aria-hidden="true">01001001<br>01010100</span>
+
+  <div class="kicker">project document</div>
+  <h1 class="big-title" aria-label="Evaluation">
+    <span aria-hidden="true" style="--r:-8deg;--y:4px">E</span><span aria-hidden="true" style="--r:4deg;--y:-10px;--s:.8em">V</span><span aria-hidden="true" style="--r:-3deg">A</span><span aria-hidden="true" style="--r:6deg;--y:-14px;--s:.82em">L</span><span aria-hidden="true" style="--r:-5deg;--y:6px">U</span><span aria-hidden="true" style="--r:3deg;--y:-6px;--s:.86em">A</span><span aria-hidden="true" style="--r:-6deg;--y:2px">T</span><span aria-hidden="true" style="--r:8deg;--y:-12px;--s:.78em">I</span><span aria-hidden="true" style="--r:-2deg;--y:4px">O</span><span aria-hidden="true" style="--r:5deg;--y:-4px;--s:.88em">N</span>
+  </h1>
+  <div class="brush-tag">Booth Attendance, Evaluation &amp; E-Certificate System</div>
+  <p class="lede">A web app that took a whole skills demonstration off paper. Participants check in with a one-time <span class="highlight">passkey</span>, answer a short evaluation before and after the demo, and leave with a PDF certificate that has their name on it. Organizers watch the results come in live.</p>
+  <p class="event-meta">
+    <span><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>October 16, 2026</span>
+    <span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/></svg>University of La Salette</span>
+    <span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3L2 8l10 5 10-5z"/><path d="M6 10.5v5c3 2.5 9 2.5 12 0v-5"/></svg>College of Information Technology</span>
+  </p>
+  <div class="hero-links">
+    <a class="btn" href="https://hazelbsebastian.github.io/booth-evaluation/" target="_blank" rel="noopener">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></svg>Open the live site
+    </a>
+  </div>
+</header>
+
+<main class="band">
+  <div class="band-inner">
+
+    <!-- Contents -->
+    <nav class="paper-card" aria-labelledby="h-toc">
+      <span class="tape tc" aria-hidden="true"></span>
+      <h2 class="card-title" id="h-toc">Contents</h2>
+      <ol class="toc">
+        <li><a href="#h-overview"><span class="n">1</span>Overview</a></li>
+        <li><a href="#h-flow"><span class="n">2</span>Participant Flow</a></li>
+        <li><a href="#h-key"><span class="n">3</span>Passkeys</a></li>
+        <li><a href="#h-org"><span class="n">4</span>Organizer Dashboard</a></li>
+        <li><a href="#h-arch"><span class="n">5</span>System Architecture</a></li>
+        <li><a href="#h-load"><span class="n">6</span>Reliability Under Load</a></li>
+        <li><a href="#h-sec"><span class="n">7</span>Security</a></li>
+        <li><a href="#h-stack"><span class="n">8</span>Technologies Used</a></li>
+      </ol>
+      <p class="doc-info"><span><b>Prepared by</b> Hazel Sebastian</span><span><b>Event date</b> October 16, 2026</span><span><b>Updated</b> October 17, 2026</span></p>
+    </nav>
+
+    <!-- Overview -->
+    <section class="paper-card" aria-labelledby="h-overview">
+      <span class="tape tl" aria-hidden="true"></span><span class="tape tr" aria-hidden="true"></span>
+      <h2 class="card-title" id="h-overview"><span class="sec-no">1.</span>Overview</h2>
+      <div class="prose">
+        <p>The 4th Year IT students ran a <b>Service Learning Competency</b> booth with three hands-on demos: <b>UTP Cable Termination</b>, <b>Router and Wi-Fi Configuration</b> and <b>Basic Network Troubleshooting</b>. Every visitor had to be logged, evaluated before and after their demo, and given a certificate of participation.</p>
+        <p>Doing that on paper means stacks of forms, manual tallying and hand-writing certificates afterwards. This system does all of it from a phone. Visitors scan a QR code at the booth, and organizers get a live dashboard and a spreadsheet they can export to Excel.</p>
+        <p>It runs entirely on free services. The site is hosted on <b>GitHub Pages</b>, and the data lives in a <b>Google Sheet</b> behind a <b>Google Apps Script</b> web app. There's no server to pay for or maintain.</p>
+      </div>
+      <div class="stats">
+        <div class="stat"><div class="num">3</div><div class="lbl">demo topics, each with its own keys, switch and certificate</div></div>
+        <div class="stat"><div class="num">2×</div><div class="lbl">each passkey is used: once before and once after the demo</div></div>
+        <div class="stat"><div class="num">100</div><div class="lbl">submissions at the same moment in stress tests, every row saved correctly</div></div>
+        <div class="stat"><div class="num">₱0</div><div class="lbl">hosting cost, using GitHub Pages and Google Sheets</div></div>
+      </div>
+    </section>
+
+    <!-- Participant flow -->
+    <section class="paper-card" aria-labelledby="h-flow">
+      <span class="tape tc" aria-hidden="true"></span>
+      <h2 class="card-title" id="h-flow"><span class="sec-no">2.</span>Participant Flow</h2>
+      <p class="card-sub">Five steps across two visits to the same page. Booth staff hand out a passkey slip, and the visitor uses it at the start and again at the end.</p>
+      <ol class="steps">
+        <li><span class="num">1</span><span class="when before">before</span><h3>Passkey</h3><p>Types the code from the slip. The server checks it and works out the topic and stage.</p></li>
+        <li><span class="num">2</span><span class="when before">before</span><h3>Attendance</h3><p>Name exactly as it should print, email, college and year level.</p></li>
+        <li><span class="num">3</span><span class="when before">before</span><h3>Pre-evaluation</h3><p>Five statements written for that topic, rated 5 to 1, plus "what do you hope to learn?"</p></li>
+        <li><span class="num">4</span><span class="when after">after</span><h3>Post-evaluation</h3><p>Same passkey again. Ten rating questions about the session and two optional comments.</p></li>
+        <li><span class="num">5</span><span class="when after">after</span><h3>Certificate</h3><p>A PDF certificate for that topic, with their name, downloads automatically.</p></li>
+      </ol>
+
+      <div class="mocks">
+        <div class="mock">
+          <span class="mock-cap">step 1, passkey screen</span>
+          <div class="passkey-input" aria-label="Example passkey K7M-Q3P">K7M-Q3P</div>
+          <p class="mock-note">Keys are entered in big monospace type. The dash is optional and lowercase is fine, because the server normalizes the input.</p>
+          <span class="mock-cap">step 3, a pre-evaluation item</span>
+          <div class="q-row"><span class="q-num">3</span><span class="q-text">I know the T568B wire color order.</span></div>
+          <div class="likert" aria-hidden="true">
+            <span><b>5</b>Strongly Agree</span><span><b>4</b>Agree</span><span class="on"><b>3</b>Neutral</span><span><b>2</b>Disagree</span><span><b>1</b>Strongly Disagree</span>
+          </div>
+        </div>
+        <div class="mock">
+          <span class="mock-cap">step 5, the certificate (mock-up)</span>
+          <div class="cert" role="img" aria-label="Mock-up of a certificate of participation">
+            <span class="c1">CERTIFICATE</span>
+            <span class="c2">OF PARTICIPATION</span>
+            <span class="c3">This certificate is proudly presented to:</span>
+            <span class="c4">Maria Clara D. Santos</span>
+            <span class="c5">for actively participating in the UTP CABLE TERMINATION workshop held on October 16, 2026</span>
+          </div>
+          <p class="mock-note">Each topic has its own certificate designed in Canva. The browser draws the participant's name onto it with a canvas and saves it as an A4 landscape PDF using jsPDF.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Passkey -->
+    <section class="paper-card" aria-labelledby="h-key">
+      <span class="tape tl" aria-hidden="true"></span>
+      <h2 class="card-title" id="h-key"><span class="sec-no">3.</span>Passkeys</h2>
+      <p class="card-sub">Each participant gets one passkey from the booth staff. It is what makes this work without accounts or logins. It ties the before and after answers to one person, decides which certificate they get, and makes sure each visitor counts once.</p>
+      <div class="lifecycle">
+        <div class="life"><span class="key-chip">K7M-Q3P</span><h3>Unused</h3><p>Generated by an organizer for one topic and printed on a cut-out slip.</p></div>
+        <span class="arrow" aria-hidden="true">→</span>
+        <div class="life"><span class="key-chip started">K7M-Q3P</span><h3>Started</h3><p>Attendance and pre-evaluation saved. The key now opens the post-evaluation.</p></div>
+        <span class="arrow" aria-hidden="true">→</span>
+        <div class="life"><span class="key-chip used">K7M-Q3P</span><h3>Used</h3><p>Post-evaluation saved and certificate issued. The key is finished.</p></div>
+      </div>
+      <ul class="facts">
+        <li>Keys use 32 characters with no <code>0</code>, <code>O</code>, <code>1</code> or <code>I</code>, so nobody misreads a slip.</li>
+        <li>The topic always comes from the Keys sheet, never from the browser, so nobody can claim another topic's certificate.</li>
+        <li>A wrong key gets an 800 ms delay before the reply to slow down guessing.</li>
+        <li>Keys for a closed topic are turned away until an organizer opens it again.</li>
+      </ul>
+    </section>
+
+    <!-- Organizer -->
+    <section class="paper-card" aria-labelledby="h-org">
+      <span class="tape tr" aria-hidden="true"></span>
+      <h2 class="card-title" id="h-org"><span class="sec-no">4.</span>Organizer Dashboard</h2>
+      <p class="card-sub">A password-protected page for running the booth on the day. The organizer picks a topic, and everything below it is scoped to that topic.</p>
+      <div class="org-grid">
+        <div class="mock">
+          <span class="mock-cap">open or close each topic (example)</span>
+          <div class="topic-list" aria-hidden="true">
+            <div class="topic-row"><span class="nm">UTP Cable Termination<span class="st is-open">● Open</span></span><span class="track on"></span></div>
+            <div class="topic-row"><span class="nm">Router and Wi-Fi Configuration<span class="st is-open">● Open</span></span><span class="track on"></span></div>
+            <div class="topic-row"><span class="nm">Basic Network Troubleshooting<span class="st is-closed">● Closed</span></span><span class="track"></span></div>
+          </div>
+          <span class="mock-cap">passkeys at a glance (example)</span>
+          <div class="key-grid" aria-hidden="true">
+            <span class="key-chip used">B4X-9RT</span><span class="key-chip used">H2N-KW7</span><span class="key-chip started">M8P-3DQ</span><span class="key-chip started">T6V-Z2C</span><span class="key-chip">R5J-8LA</span><span class="key-chip">W3F-Y9E</span>
+          </div>
+        </div>
+        <ul class="facts" style="grid-template-columns: 1fr">
+          <li><b>Open or close</b> each topic's evaluation on its own. Closing one doesn't affect the others.</li>
+          <li><b>Generate passkeys</b> up to 200 at a time, then print the unused ones as cut-out slips or download them as CSV.</li>
+          <li><b>Live results</b>: attendee counts, a tally by college and year level, and the average score for every question.</li>
+          <li><b>Response tables</b> for the pre- and post-evaluation, with search, exported as CSV (opens in Excel) or JSON.</li>
+          <li><b>Clear data</b> for one topic or everything, behind a confirmation dialog that spells out what will be deleted.</li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- Architecture -->
+    <section class="paper-card" aria-labelledby="h-arch">
+      <span class="tape tc" aria-hidden="true"></span>
+      <h2 class="card-title" id="h-arch"><span class="sec-no">5.</span>System Architecture</h2>
+      <p class="card-sub">A static front end, a small script backend and a spreadsheet as the database. Plain HTML, CSS and JavaScript, with no framework and no build step.</p>
+      <div class="arch-wrap">
+        <div class="arch">
+          <div class="node purple">
+            <span class="where">GitHub Pages</span>
+            <h3>The website</h3>
+            <ul>
+              <li><code>index.html</code> participant flow</li>
+              <li><code>admin.html</code> dashboard</li>
+              <li><code>config.js</code> topics, questions, colleges</li>
+              <li>jsPDF makes the certificate in the browser</li>
+            </ul>
+          </div>
+          <div class="link"><svg viewBox="0 0 60 20" aria-hidden="true"><path d="M4 10h50M46 4l8 6-8 6"/></svg>JSON over POST</div>
+          <div class="node">
+            <span class="where">Google Apps Script</span>
+            <h3>The backend</h3>
+            <ul>
+              <li>One web app with 7 actions: check key, submit pre, submit post, and four admin ones</li>
+              <li>Admin password kept in Script Properties</li>
+              <li>A script lock around every write</li>
+            </ul>
+          </div>
+          <div class="link"><svg viewBox="0 0 60 20" aria-hidden="true"><path d="M4 10h50M46 4l8 6-8 6"/></svg>reads &amp; appends rows</div>
+          <div class="node yellow">
+            <span class="where">Google Sheets</span>
+            <h3>The data</h3>
+            <div class="tabs"><span class="tab">PreEvaluation</span><span class="tab">Responses</span><span class="tab">Keys</span></div>
+            <ul>
+              <li>Owned by the organizer only</li>
+              <li>New answer fields become new columns automatically</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+      <div class="prose">
+        <p>The site also has a <b>demo mode</b>. With no backend URL in <code>config.js</code>, it follows the same rules using the browser's local storage, so the whole flow can be tried on a laptop before anything is deployed.</p>
+      </div>
+    </section>
+
+    <!-- Load -->
+    <section class="paper-card" aria-labelledby="h-load">
+      <span class="tape tl" aria-hidden="true"></span><span class="tape tr" aria-hidden="true"></span>
+      <h2 class="card-title" id="h-load"><span class="sec-no">6.</span>Reliability Under Load</h2>
+      <p class="card-sub">The hard part was the moment a demo ends and a whole group submits at once. Google Sheets isn't a real database, so the saving logic was stress-tested and changed until every row came through correctly.</p>
+      <ol class="story">
+        <li class="bad"><span class="dot">1</span><div><h3>Save in parallel with a short lock <span class="tag no">dropped</span></h3><p>Faster on paper, but simultaneous writes to the sheet lost some rows and doubled others under load.</p></div></li>
+        <li class="bad"><span class="dot">2</span><div><h3>Faster key lookup with TextFinder <span class="tag no">dropped</span></h3><p>Under heavy load it sometimes returned the wrong row. The backend went back to reading the whole Keys sheet, which is slower but always right.</p></div></li>
+        <li class="good"><span class="dot">3</span><div><h3>One at a time, and the browser retries <span class="tag yes">kept</span></h3><p>Each submission takes the script lock, checks the key, appends the row and marks the key used. If the lock is busy the server answers "busy" and the phone tries again. This stayed 100% correct with 100 simultaneous submissions.</p></div></li>
+      </ol>
+
+      <div class="section-label">6.1 Client retry timing</div>
+      <p class="card-sub">Waits grow after each busy reply, and each one is randomized between 60% and 140% so a crowd doesn't retry at the same instant. Any request still waiting after 45 seconds is cancelled and retried.</p>
+      <div>
+        <div class="backoff" role="img" aria-label="Retry waits: 1.5, 3, 5, 8, 12 and 15 seconds, each varied between 60 and 140 percent">
+          <div class="b"><span class="v">1.5s</span><div class="bar" style="height:10%;--j:4px"></div></div>
+          <div class="b"><span class="v">3s</span><div class="bar" style="height:20%;--j:8px"></div></div>
+          <div class="b"><span class="v">5s</span><div class="bar" style="height:33%;--j:13px"></div></div>
+          <div class="b"><span class="v">8s</span><div class="bar" style="height:53%;--j:21px"></div></div>
+          <div class="b"><span class="v">12s</span><div class="bar" style="height:68%;--j:20px"></div></div>
+          <div class="b"><span class="v">15s</span><div class="bar" style="height:72%;--j:14px"></div></div>
+        </div>
+        <div class="backoff-labels" aria-hidden="true"><span>retry 1</span><span>2</span><span>3</span><span>4</span><span>5</span><span>6</span></div>
+      </div>
+      <div class="legend"><span><i></i>base wait</span><span><i class="j"></i>random spread</span></div>
+      <div class="sticky-note">A retry can find its own earlier attempt already saved. The app treats "already used" on a retry as success, so nobody sees an error for an answer that actually went through.</div>
+    </section>
+
+    <!-- Security -->
+    <section class="paper-card" aria-labelledby="h-sec">
+      <span class="tape tc" aria-hidden="true"></span>
+      <h2 class="card-title" id="h-sec"><span class="sec-no">7.</span>Security</h2>
+      <p class="card-sub">The website's code is sent to every visitor's browser, so nothing secret can live in it.</p>
+      <ul class="facts">
+        <li>The admin password is checked by Google's servers and stored in Script Properties. It never appears in the website code.</li>
+        <li>The public backend URL can only <b>submit</b> answers, and only with an unused key for an open topic. Reading results needs the password.</li>
+        <li>The script asks for access to its own spreadsheet only, and nothing else in the organizer's Google Drive.</li>
+        <li>Text that starts with <code>=</code>, <code>+</code>, <code>-</code> or <code>@</code> is escaped before it's saved, so a "name" can't run as a spreadsheet formula.</li>
+      </ul>
+    </section>
+
+    <!-- Stack -->
+    <section class="paper-card" aria-labelledby="h-stack">
+      <span class="tape tl" aria-hidden="true"></span>
+      <h2 class="card-title" id="h-stack"><span class="sec-no">8.</span>Technologies Used</h2>
+      <div class="chips">
+        <span class="chip"><b>HTML</b> &amp; <b>CSS</b></span>
+        <span class="chip"><b>Vanilla JavaScript</b></span>
+        <span class="chip"><b>Google Apps Script</b></span>
+        <span class="chip"><b>Google Sheets</b></span>
+        <span class="chip"><b>jsPDF</b> + Canvas</span>
+        <span class="chip"><b>GitHub Pages</b></span>
+        <span class="chip"><b>Canva</b> certificates</span>
+      </div>
+      <div class="links-row">
+        <a class="btn yellow" href="https://hazelbsebastian.github.io/booth-evaluation/" target="_blank" rel="noopener">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></svg>Live site
+        </a>
+      </div>
+      <p class="url">hazelbsebastian.github.io/booth-evaluation</p>
+    </section>
+
+    <footer class="band-footer">
+      <div class="note">Keep learning, keep <span class="circled">coding</span>!</div>
+      <div class="note">Designed &amp; built by<span class="note-from">Hazel Sebastian</span></div>
+    </footer>
+  </div>
+</main>
+</body>
+</html>
